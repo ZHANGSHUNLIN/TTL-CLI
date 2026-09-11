@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 完整本地验证：构建产物、CLI 黑盒回归、单元测试、集成测试和静态检查。
+# 完整本地验证：构建、架构、CLI 黑盒、Go 测试、race 和静态检查。
 
 set -euo pipefail
 
@@ -25,27 +25,49 @@ echo "  TTL 项目完整验证"
 echo "========================================="
 
 echo ""
-echo "[1/5] 客户端与服务端构建检查..."
+echo "[1/8] 源码与脚本格式检查..."
+git diff --check
+UNFORMATTED=$(gofmt -s -l .)
+if [[ -n "$UNFORMATTED" ]]; then
+    echo "以下 Go 文件需要格式化:" >&2
+    echo "$UNFORMATTED" >&2
+    exit 1
+fi
+bash -n "$SCRIPT_DIR/regression.sh" "$SCRIPT_DIR/verify.sh"
+echo "✅ 源码与脚本格式检查通过"
+
+echo ""
+echo "[2/8] 客户端与服务端构建检查..."
 go build -o "$BINARY" ./cmd/ttl
 go build -o "$SERVER_BINARY" ./cmd/ttl-server
 echo "✅ 构建成功"
 
 echo ""
-echo "[2/5] CLI 黑盒回归..."
+echo "[3/8] 架构依赖检查..."
+HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test ./internal/architecture
+echo "✅ 架构依赖检查通过"
+
+echo ""
+echo "[4/8] CLI 黑盒回归..."
 "$SCRIPT_DIR/regression.sh" "$BINARY"
 
 echo ""
-echo "[3/5] 单元测试..."
+echo "[5/8] 全部 Go 测试..."
 HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test ./...
-echo "✅ 单元测试通过"
+echo "✅ 全部 Go 测试通过"
 
 echo ""
-echo "[4/5] 集成测试..."
+echo "[6/8] 集成测试..."
 HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test ./integration_test/...
 echo "✅ 集成测试通过"
 
 echo ""
-echo "[5/5] 静态检查..."
+echo "[7/8] Race 检查..."
+HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test -race ./...
+echo "✅ Race 检查通过"
+
+echo ""
+echo "[8/8] 静态检查..."
 HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go vet ./...
 echo "✅ 静态检查通过"
 

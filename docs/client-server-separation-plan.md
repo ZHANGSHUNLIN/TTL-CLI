@@ -187,6 +187,7 @@ ttl-server user list
 gofmt -s -l .
 go test ./...
 go test ./integration_test/...
+go test -race ./...
 go vet ./...
 ./scripts/regression.sh
 ```
@@ -194,9 +195,12 @@ go vet ./...
 拆分完成后增加结构检查：
 
 ```bash
-go list -deps ./cmd/ttl
-go list -deps ./cmd/ttl-server
+go test ./internal/architecture
 ```
+
+结构测试内部使用 `go list -json` 检查直接与传递依赖。迁移期允许 `internal/client/cli` 通过兼容命令引用 server；其他客户端包不得引用 server，`ttl-server` 不得依赖客户端或旧 `command`、`db`、`sync` 包。移除 `ttl server` 兼容入口后，再收紧为 `ttl` 完全不包含 server 实现依赖。
+
+旧数据兼容由 `integration_test` 中的 `TestSQLiteStorage_LegacyDataCompatibility` 和 `TestBboltStorage_LegacyDataCompatibility` 验证；fixture 按拆分前的表、bucket 和 JSON 字段生成，不经过当前存储写入方法。
 
 人工验收：
 

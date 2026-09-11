@@ -10,6 +10,7 @@ import (
 type listedPackage struct {
 	ImportPath string
 	Imports    []string
+	Deps       []string
 }
 
 func TestClientAndServerDoNotImportEachOther(t *testing.T) {
@@ -39,12 +40,15 @@ func TestCoreDoesNotImportAdapters(t *testing.T) {
 	}
 }
 
-func TestServerCommandDoesNotDependOnClientOrLegacyDB(t *testing.T) {
-	packages := listPackages(t, "../../cmd/ttl-server", "../server/...")
+func TestServerBinary_DependencyBoundary(t *testing.T) {
+	packages := listPackages(t, "../../cmd/ttl-server")
 	for _, pkg := range packages {
-		for _, imported := range pkg.Imports {
-			if strings.HasPrefix(imported, "ttl-cli/internal/client/") {
-				t.Errorf("server package %s imports client package %s", pkg.ImportPath, imported)
+		for _, dependency := range append(pkg.Imports, pkg.Deps...) {
+			if strings.HasPrefix(dependency, "ttl-cli/internal/client/") ||
+				dependency == "ttl-cli/command" ||
+				dependency == "ttl-cli/db" ||
+				dependency == "ttl-cli/sync" {
+				t.Errorf("server binary %s depends on forbidden package %s", pkg.ImportPath, dependency)
 			}
 		}
 	}

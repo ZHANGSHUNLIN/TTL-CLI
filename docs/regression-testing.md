@@ -17,17 +17,18 @@ go test ./db -run TestName
 
 ### 2. 集成测试
 
-用于验证数据库、加密、API、同步、文件系统和跨包生命周期：
+用于验证数据库、加密、API、同步、文件系统、旧数据兼容和跨包生命周期：
 
 ```sh
 go test ./...
 go test ./integration_test/...
+go test -race ./...
 go vet ./...
 ```
 
-集成测试应使用临时目录、临时数据库和 `httptest`，不要依赖个人的 `~/.ttl` 或固定端口。
+集成测试应使用临时目录、临时数据库和 `httptest`，不要依赖个人的 `~/.ttl` 或固定端口。涉及默认配置和密钥路径的测试包会在 `TestMain` 中设置独立的临时用户目录；旧数据兼容测试直接生成拆分前的 SQLite 表和 bbolt bucket/JSON 格式，再由当前存储实现读取。
 
-`scripts/verify.sh` 会为 Go 测试设置临时 `HOME`，同时保留当前 `GOPATH`，避免测试读取个人配置，也避免重新下载已经安装的 Go 工具链。单独运行 `go test ./...` 时，如果本地 `~/.ttl` 配置影响了测试，应使用同样的临时 `HOME` 隔离方式。
+`scripts/verify.sh` 还会为整个验证进程设置临时 `HOME`，同时保留当前 `GOPATH`。这是对所有命令的第二层隔离；测试自身不能把脚本隔离当作读取个人配置的理由。
 
 ### 3. CLI 黑盒回归
 
@@ -37,7 +38,7 @@ go vet ./...
 ./scripts/regression.sh
 ```
 
-脚本会创建临时 `HOME`、配置、数据库和加密密钥，覆盖资源生命周期、标签、导入导出、日志、历史、审计、加密和工作空间，并检查命令输出和后续数据状态。它不会修改真实用户数据。
+脚本会创建临时 `HOME`、配置、数据库和加密密钥，覆盖资源生命周期、标签、导入导出、日志、历史、审计、加密和工作空间，并检查命令输出、实际文件位置和后续数据状态。它不会修改真实用户数据。
 
 如果已经有构建产物，也可以把它作为参数传入：
 
@@ -53,7 +54,21 @@ go vet ./...
 ./scripts/verify.sh
 ```
 
-完整验证依次执行构建、CLI 黑盒回归、全部 Go 测试、集成测试和 `go vet`。
+完整验证依次执行补丁/Go/shell 格式检查、双二进制构建、架构依赖检查、CLI 黑盒回归、全部 Go 测试、集成测试、race 检查和 `go vet`。架构检查通过 `go list -json` 分析直接与传递依赖；服务端二进制一旦依赖客户端、旧 `command`、旧 `db` 或旧 `sync` 包就会失败。
+
+## 自动验收证据
+
+| 验收目标 | 自动化证据 |
+| --- | --- |
+| 补丁无空白错误，Go 与验证脚本格式有效 | `git diff --check`、`gofmt -s -l .`、`bash -n` |
+| 客户端和服务端均可构建 | `scripts/verify.sh` 的双二进制构建 |
+| 用户入口和持久化生命周期可用 | `scripts/regression.sh` |
+| 自定义配置、数据库、密钥和工作空间不写入真实用户目录 | 黑盒文件路径断言和测试包临时 `HOME` |
+| client、server、core 依赖方向受控 | `internal/architecture/dependencies_test.go` |
+| 拆分前 SQLite/bbolt 数据可继续读取 | `TestSQLiteStorage_LegacyDataCompatibility`、`TestBboltStorage_LegacyDataCompatibility` |
+| 并发访问没有已知数据竞争 | `go test -race ./...` |
+
+人工验收仍负责判断产品目标和迁移阶段是否完成，例如是否可以移除 `ttl server` 兼容入口、是否已完成 TUI，以及当前改动是否符合任务范围。自动检查不能替代这些产品决策。
 
 ## 按变更选择检查
 
@@ -61,7 +76,7 @@ go vet ./...
 | --- | --- |
 | 一个 helper 或局部规则 | 聚焦单元测试 |
 | 命令行为、CLI 输出或数据生命周期 | 相关单元测试 + `./scripts/regression.sh` |
-| 数据库、加密、API、同步、迁移或跨包逻辑 | `go test ./...`、`go test ./integration_test/...`、`go vet ./...` |
+| 数据库、加密、API、同步、迁移或跨包逻辑 | `go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...` |
 | 依赖变化、宽范围重构或提交前总检查 | `./scripts/verify.sh` |
 | 只改文档、Skill 或流程 | `git diff --check` + 人工检查链接和内容 |
 

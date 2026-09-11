@@ -7,6 +7,19 @@ Issue、Project、Pull Request 或远程审批。
 
 <!-- 新任务先放这里。每项至少写清目标和验收条件。 -->
 
+- [ ] W-006 消除客户端对全局存储的依赖
+  - 目标：让客户端命令和同步流程通过显式构造参数使用存储，不再读取 `db.Stor`。
+  - 验收：`command`、`internal/client/cli` 和 `internal/client/sync` 不直接读取 `db.Stor`；兼容门面只服务尚未迁移的外部入口；现有 CLI 行为不变。
+  - 检查：相关单元测试、`go test ./integration_test/...`、`./scripts/regression.sh`、`go test -race ./...` 和架构依赖检查。
+  - 决策：实现时更新 `docs/decisions/2026-09-12-separate-client-server-layout.md`。
+  - 备注：需要先确定命令构造和存储生命周期的所有者。
+- [ ] W-007 实现 TUI 并收敛兼容入口
+  - 目标：实现复用 core 用例的 `ttl ui`，并根据版本兼容承诺处理根入口和 `ttl server` 代理。
+  - 验收：TUI 不解析 CLI 文本；CLI/TUI 使用同一存储契约；兼容入口的保留或移除有明确版本策略；安装和发布说明同步更新。
+  - 检查：TUI 聚焦测试、CLI 黑盒、双二进制构建、`./scripts/verify.sh` 和人工交互验收。
+  - 决策：实现前更新客户端交互与兼容策略决策记录。
+  - 备注：依赖 W-006 的显式存储生命周期。
+
 ## Doing
 
 <!-- 当前正在处理的任务。通常只保留一项。 -->
@@ -22,6 +35,13 @@ Issue、Project、Pull Request 或远程审批。
 ## Done
 
 <!-- 人工审核通过并完成提交的任务。 -->
+
+- [x] W-005 补齐回归与验收自动化
+  - 目标：把 race、架构依赖、旧数据兼容和测试环境隔离变成可重复执行的自动化证据。
+  - 验收：完整验证包含 race；依赖边界由测试断言；SQLite/bbolt 旧格式数据有兼容 fixture；测试不读取真实 `~/.ttl`；文档与实际入口一致。
+  - 检查：`./scripts/regression.sh`、直接运行的 `go test -race ./...`、`./scripts/verify.sh`、`git diff --check` 和 `gofmt -s -l .` 已通过。
+  - 决策：无需记录，原因：补齐既有回归设计的实现证据，不改变产品架构或兼容策略。
+  - 备注：人工审核结果为 `PASS`；TUI、`db.Stor` 清理和移除兼容入口已分别登记为 W-006、W-007。
 
 - [x] W-004 拆分客户端与后端服务工程边界
   - 目标：让 CLI/TUI 客户端、远端服务和共享核心的源码与构建入口一眼可辨。

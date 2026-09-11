@@ -18,7 +18,7 @@ Use the smallest test layer that can prove the changed behavior. The repository 
 | --- | --- |
 | One helper or isolated package rule | Focused `go test ./path -run TestName` |
 | Command behavior or user-visible output | Focused tests plus `./scripts/regression.sh` |
-| Database, encryption, API, sync, migration, or cross-package behavior | `go test ./...` and `go test ./integration_test/...` |
+| Database, encryption, API, sync, migration, or cross-package behavior | `go test ./...`, `go test ./integration_test/...`, and `go test -race ./...` |
 | Broad refactor, dependency change, or pre-commit confidence pass | `./scripts/verify.sh` |
 | Documentation or workflow-only change | `git diff --check` and manual content review |
 
@@ -30,6 +30,7 @@ Run `go vet ./...` for normal behavior changes when the selected checks do not a
 
 - use a temporary `HOME`, config file, database, and encryption key;
 - verify observable output and persisted behavior after commands finish;
+- assert that config, database, key, and workspace files resolve inside the temporary directory;
 - cover the smallest representative lifecycle for changed commands;
 - fail on an unexpected success, missing output, wrong exit status, or lost data;
 - avoid real user files, fixed ports, remote services, and developer-specific paths.
@@ -42,7 +43,10 @@ This is the personal equivalent of DSH's layered regression model:
 
 - unit and integration tests cover package and capability contracts;
 - the built CLI regression covers expected user-visible output and persisted results;
-- `go build` and `go vet` cover artifact and static gates;
+- compatibility fixtures prove that the current storage adapters read pre-refactor SQLite and bbolt formats;
+- architecture tests inspect direct and transitive package dependencies;
+- `git diff --check`, `gofmt`, and `bash -n` cover source hygiene;
+- `go build`, `go test -race`, and `go vet` cover artifact, concurrency, and static gates;
 - real external API, browser snapshot, recorded model session, platform matrix, and GitHub workflow gates are intentionally out of scope for this local CLI practice project.
 
 ## Report evidence

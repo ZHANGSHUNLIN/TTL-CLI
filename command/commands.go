@@ -335,21 +335,30 @@ var ConfigCmd = &cobra.Command{
 	Short: i18n.T("command.config.short"),
 	Long:  i18n.T("command.config.long"),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ttlConf, err := conf.GetTtlConf()
+		confFile, _ := cmd.Context().Value("confFile").(string)
+		var ttlConf models.TtlIni
+		var err error
+		if confFile == "" {
+			ttlConf, err = conf.GetTtlConf()
+		} else {
+			ttlConf, err = conf.GetTtlConfFromFile(confFile)
+		}
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.config.error_get_path"), err)
 		}
 
-		dbPath, err := db.GetDBPath("", ttlConf.StorageType)
+		dbPath, err := db.GetDBPath(confFile, ttlConf.StorageType)
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.config.error_get_path"), err)
 		}
 		Println(i18n.T("command.config.data_path_label"), dbPath)
 		Println(i18n.T("command.config.storage_type_label"), ttlConf.StorageType)
 
-		confPath, err := conf.GetDefaultConfPath()
+		if confFile == "" {
+			confFile, err = conf.GetDefaultConfPath()
+		}
 		if err == nil {
-			Println(i18n.T("command.config.config_path_label"), confPath)
+			Println(i18n.T("command.config.config_path_label"), confFile)
 		}
 
 		return nil

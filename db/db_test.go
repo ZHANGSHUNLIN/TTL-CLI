@@ -12,6 +12,9 @@ import (
 )
 
 func TestGetDBPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
+
 	path, err := GetDBPath("", "sqlite")
 	if err != nil {
 		t.Fatalf("GetDBPath() error = %v", err)
