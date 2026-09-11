@@ -68,7 +68,7 @@ No more searching through old emails or scrolling through Slack history. Just `t
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZHANGSHUNLIN/TTL-CLI/main/install.sh)"
 
 # Or build from source
-go build -o ttl .
+go build -o ttl ./cmd/ttl
 sudo mv ttl /usr/local/bin/
 ```
 
@@ -202,28 +202,38 @@ ttl export --format json --output backup.json
 ## 🏗️ Project Structure
 
 ```
-ttl
-├── main.go              # Entry point, CLI setup (cobra)
-├── command/             # CLI command definitions
-│   ├── commands.go      # Core commands (get/add/del/tag/open...)
-│   ├── log.go           # Work log commands
-│   ├── export.go        # Export command
-│   └── server.go        # Server commands
-├── db/                  # Storage layer (bbolt)
-│   ├── db.go            # Database initialization
-│   ├── storage.go       # Local storage implementation
-│   ├── tenant_storage.go# Multi-tenant storage router
-│   ├── user_store.go    # User CRUD (users.json)
-│   └── context.go       # Request-scoped storage
-├── api/                 # HTTP server
-│   ├── server.go        # Server startup
-│   ├── handlers.go      # REST API handlers
-│   └── middleware.go     # Auth middleware
-├── sync/                # Data sync logic
-├── models/              # Shared data models
-├── conf/                # Config file (INI) handling
-└── util/                # Utility functions
+ttl-cli/
+├── main.go                 # Compatible root build for the ttl client
+├── cmd/ttl/                # Canonical local client entry point
+├── cmd/ttl-server/         # Standalone backend server entry point
+├── internal/client/cli/    # Client command tree, sync, and migration
+├── internal/server/        # Backend API, tenant data, and server commands
+├── command/                # User-facing CLI commands
+├── db/                     # Storage interface and bbolt/SQLite/cloud backends
+├── sync/                   # Local/remote diff and push/pull execution
+├── conf/                   # INI configuration and workspace management
+├── crypto/                 # Data encryption and key lifecycle
+├── i18n/                   # Localization loader and locale resources
+├── models/                 # Shared persisted and API-facing types
+├── util/                   # Small shared helpers
+├── integration_test/       # Cross-package and server/sync scenarios
+├── scripts/                # CLI regression and full verification scripts
+└── docs/                   # Engineering workflow and decision records
 ```
+
+For startup flow, package responsibilities, data flow, and common change
+locations, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
+
+The local client and backend service can now be built independently:
+
+```bash
+go build -o ttl .
+go build -o ttl ./cmd/ttl
+go build -o ttl-server ./cmd/ttl-server
+```
+
+`ttl server ...` remains available during migration. New deployments can use
+`ttl-server serve ...` and `ttl-server user ...` directly.
 
 ---
 

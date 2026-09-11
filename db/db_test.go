@@ -48,7 +48,7 @@ func TestLocalStorage_Init(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	// 测试初始化
 	err = storage.Init()
@@ -77,7 +77,7 @@ func TestLocalStorage_SaveGetResource(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	err = storage.Init()
 	if err != nil {
@@ -132,7 +132,7 @@ func TestLocalStorage_UpdateResource(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	err = storage.Init()
 	if err != nil {
@@ -192,7 +192,7 @@ func TestLocalStorage_DeleteResource(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	err = storage.Init()
 	if err != nil {
@@ -252,7 +252,7 @@ func TestLocalStorage_AuditFunctions(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	err = storage.Init()
 	if err != nil {
@@ -319,7 +319,7 @@ func TestLocalStorage_HistoryFunctions(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	storage := NewLocalStorage()
-	storage.dbPath = dbPath
+	storage.SetDBPath(dbPath)
 
 	err = storage.Init()
 	if err != nil {
@@ -449,43 +449,5 @@ func TestJsonSerialization(t *testing.T) {
 
 	if valueDecoded.Val != value.Val {
 		t.Errorf("ValJson.Val mismatch: got %q, want %q", valueDecoded.Val, value.Val)
-	}
-}
-
-func TestCloudStorage(t *testing.T) {
-	srv := mockAPIServer(t)
-	defer srv.Close()
-
-	storage := NewCloudStorage(srv.URL, "test-key", 30)
-
-	err := storage.Init()
-	if err != nil {
-		t.Errorf("CloudStorage.Init() error = %v", err)
-	}
-
-	resources, err := storage.GetAllResources()
-	if err != nil {
-		t.Errorf("CloudStorage.GetAllResources() error = %v", err)
-	}
-
-	if len(resources) != 0 {
-		t.Errorf("Expected empty resources from cloud storage")
-	}
-
-	record := models.AuditRecord{
-		ResourceKey: "test",
-		Operation:   "get",
-		Timestamp:   time.Now().Unix(),
-		Count:       1,
-	}
-
-	err = storage.SaveAuditRecord(record)
-	if err != nil {
-		t.Errorf("CloudStorage.SaveAuditRecord() error = %v", err)
-	}
-
-	err = storage.Close()
-	if err != nil {
-		t.Errorf("CloudStorage.Close() error = %v", err)
 	}
 }

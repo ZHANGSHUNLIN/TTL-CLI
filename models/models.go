@@ -1,74 +1,27 @@
 package models
 
+import "ttl-cli/internal/core/resource"
+
 const (
-	ORIGIN = iota
-	TAG
+	ORIGIN = resource.Origin
+	TAG    = resource.Tag
 )
 
-const Version = "0.0.3"
+const Version = resource.Version
 
-type ValJsonKey struct {
-	Key       string `json:"key"`
-	Type      int    `json:"type"`
-	OriginKey string `json:"originKey"`
-}
-
-type ValJson struct {
-	Val       string   `json:"val"`
-	Tag       []string `json:"tag"`
-	CreatedAt int64    `json:"createdAt"`
-	UpdatedAt int64    `json:"updatedAt"`
-}
-
-type AuditRecord struct {
-	ResourceKey string `json:"resourceKey"`
-	Operation   string `json:"operation"`
-	Timestamp   int64  `json:"timestamp"`
-	Count       int    `json:"count"`
-}
-
-type AuditStats struct {
-	TotalOperations int            `json:"totalOperations"`
-	ByOperation     map[string]int `json:"byOperation"`
-	ByResource      map[string]int `json:"byResource"`
-}
-
-type HistoryRecord struct {
-	ID          int64  `json:"id"`
-	ResourceKey string `json:"resourceKey"`
-	Operation   string `json:"operation"`
-	Timestamp   int64  `json:"timestamp"`
-	TimeStr     string `json:"timeStr"`
-	Command     string `json:"command"`
-	Args        string `json:"args"`
-}
-
-type HistoryStats struct {
-	TotalRecords int             `json:"totalRecords"`
-	Records      []HistoryRecord `json:"records"`
-	ByOperation  map[string]int  `json:"byOperation"`
-	ByResource   map[string]int  `json:"byResource"`
-}
-
-type LogRecord struct {
-	ID        int64    `json:"id"`
-	Content   string   `json:"content"`
-	Tags      []string `json:"tags"`
-	CreatedAt string   `json:"createdAt"`
-	Date      string   `json:"date"`
-}
-
-type TagStat struct {
-	Tag          string   `json:"tag"`
-	Count        int      `json:"count"`
-	ResourceKeys []string `json:"resourceKeys"`
-}
-
-type SortOrder string
+type ValJsonKey = resource.Key
+type ValJson = resource.Value
+type AuditRecord = resource.AuditRecord
+type AuditStats = resource.AuditStats
+type HistoryRecord = resource.HistoryRecord
+type HistoryStats = resource.HistoryStats
+type LogRecord = resource.LogRecord
+type TagStat = resource.TagStat
+type SortOrder = resource.SortOrder
 
 const (
-	Ascending  SortOrder = "asc"
-	Descending SortOrder = "desc"
+	Ascending  = resource.Ascending
+	Descending = resource.Descending
 )
 
 type TtlIni struct {

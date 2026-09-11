@@ -1,6 +1,10 @@
 # Test coverage
 coverage.out
 
+# Local build output
+/ttl
+/ttl-server
+
 # IDE
 .idea/
 .vscode/

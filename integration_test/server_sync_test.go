@@ -2,14 +2,14 @@ package integration_test
 
 import (
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"ttl-cli/api"
 	"ttl-cli/db"
+	"ttl-cli/internal/client/remote"
+	api "ttl-cli/internal/server/api"
 	"ttl-cli/models"
 	ttlsync "ttl-cli/sync"
 )
@@ -35,13 +35,7 @@ func setupServerWithLocalDB(t *testing.T) (serverURL string, cleanup func()) {
 		t.Fatalf("初始化 server 存储失败: %v", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/resources", api.ResourcesHandler)
-	mux.HandleFunc("/api/v1/resources/", api.ResourceHandler)
-	mux.HandleFunc("/api/v1/audit/stats", api.AuditStatsHandler)
-	mux.HandleFunc("/api/v1/history", api.HistoryHandler)
-
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewServer(api.NewHandler(db.Stor))
 
 	return srv.URL, func() {
 		srv.Close()
@@ -77,7 +71,7 @@ func TestServerAndCloudStorage_CRUD(t *testing.T) {
 	serverURL, cleanup := setupServerWithLocalDB(t)
 	defer cleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	defer cs.Close()
 
@@ -128,7 +122,7 @@ func TestServerAndCloudStorage_DuplicateKey(t *testing.T) {
 	serverURL, cleanup := setupServerWithLocalDB(t)
 	defer cleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	defer cs.Close()
 
@@ -145,7 +139,7 @@ func TestSyncPullFlow(t *testing.T) {
 	serverURL, serverCleanup := setupServerWithLocalDB(t)
 	defer serverCleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
 		models.ValJsonKey{Key: "remote-a", Type: models.ORIGIN},
@@ -217,7 +211,7 @@ func TestSyncPushFlow(t *testing.T) {
 	serverURL, serverCleanup := setupServerWithLocalDB(t)
 	defer serverCleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
 		models.ValJsonKey{Key: "remote-only", Type: models.ORIGIN},
@@ -276,7 +270,7 @@ func TestSyncDryRun_NoChanges(t *testing.T) {
 	serverURL, serverCleanup := setupServerWithLocalDB(t)
 	defer serverCleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
 		models.ValJsonKey{Key: "remote-res", Type: models.ORIGIN},
@@ -315,7 +309,7 @@ func TestSyncAlreadyInSync(t *testing.T) {
 	serverURL, serverCleanup := setupServerWithLocalDB(t)
 	defer serverCleanup()
 
-	cs := db.NewCloudStorage(serverURL, "", 30)
+	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
 		models.ValJsonKey{Key: "same", Type: models.ORIGIN},

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`ttl-cli` is a Go CLI application. `main.go` wires Cobra commands and startup. Put command handlers in `command/`, storage in `db/`, HTTP server code in `api/`, and shared types in `models/`. Supporting packages include `conf/` (INI and workspaces), `crypto/`, `i18n/` (with `i18n/locales/`), `sync/`, and `util/`. Unit tests live beside implementation; end-to-end server and sync scenarios are in `integration_test/`. Installers are at the root, and `scripts/verify.sh` provides a full verification pass.
+`ttl-cli` contains a local client and a separately buildable backend service. `cmd/ttl/` and `cmd/ttl-server/` are the canonical executable entries; root `main.go` keeps `go build .` compatible. Put client command assembly in `internal/client/cli/`, reusable client handlers in `command/`, backend HTTP/API/tenant code in `internal/server/`, storage implementations and compatibility facades in `db/`, and shared types in `models/`. Supporting packages include `conf/` (INI and workspaces), `crypto/`, `i18n/` (with `i18n/locales/`), `sync/`, and `util/`. Unit tests live beside implementation; end-to-end server and sync scenarios are in `integration_test/`. Installers are at the root. `scripts/regression.sh` provides the built-CLI black-box regression layer, and `scripts/verify.sh` provides the full local verification pass.
 
 ## Build, Test, and Development Commands
 
@@ -10,14 +10,16 @@ Run these from the repository root:
 
 ```bash
 go mod download                 # fetch dependencies
-go build -o ttl .               # build the CLI
-go run . <command>              # run without installing
+go build -o ttl ./cmd/ttl       # build the client
+go build -o ttl-server ./cmd/ttl-server # build the backend
+go run ./cmd/ttl <command>      # run the client without installing
 go test ./...                   # run all package tests
 go test -race -coverprofile=coverage.out ./...  # CI-style unit run
 go test ./integration_test/...  # run integration tests
 go vet ./...                    # static checks
 gofmt -s -w .                   # format Go files
-./scripts/verify.sh             # build, regression, unit, and integration checks
+./scripts/regression.sh         # built CLI black-box regression
+./scripts/verify.sh             # build, regression, unit, integration, and vet checks
 ```
 
 Use temporary directories and configuration files for manual CLI checks so local `~/.ttl` data is not changed. Run `go mod tidy` when dependencies change.
@@ -42,6 +44,7 @@ Project-specific engineering Skills live under [`.agents/skills/`](.agents/skill
 
 - `personal-work-item` manages `WORK_ITEMS.md` state and completion evidence.
 - `personal-pre-review-checks` selects checks for the current diff.
+- `personal-regression-testing` selects and runs the layered unit, integration, CLI black-box, and full checks.
 - `personal-code-review` performs the owner-led manual review.
 - `personal-test-reliability` covers isolation and lifecycle risks in tests.
 - `personal-find-simplifications` proposes evidence-backed reductions in complexity.

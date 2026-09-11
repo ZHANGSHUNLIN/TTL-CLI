@@ -263,11 +263,8 @@ func TestGetTagStats_TagTypeExcluded(t *testing.T) {
 
 func TestInterfaceMethods(t *testing.T) {
 	localStorage := NewLocalStorage()
-	cloudStorage := NewCloudStorage("https://api.example.com", "test-key", 30)
-
 	var storages []Storage
 	storages = append(storages, localStorage)
-	storages = append(storages, cloudStorage)
 
 	for i, storage := range storages {
 		if storage == nil {

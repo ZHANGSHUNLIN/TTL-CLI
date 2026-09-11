@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 	"ttl-cli/conf"
+	"ttl-cli/internal/client/remote"
+	clientsync "ttl-cli/internal/client/sync"
 	"ttl-cli/models"
 )
 
@@ -33,11 +35,11 @@ func InitDB(storageType string, cloudAPIURL string, cloudAPIKey string, cloudTim
 	switch storageType {
 	case "sqlite":
 		sqliteStorage := NewSQLiteStorage()
-		sqliteStorage.confFile = confFile
+		sqliteStorage.SetConfigFile(confFile)
 		Stor = sqliteStorage
 	case "local", "bbolt":
 		ls := NewLocalStorage()
-		ls.confFile = confFile
+		ls.SetConfigFile(confFile)
 		if boltTimeout > 0 {
 			ls.SetTimeout(boltTimeout)
 		}
@@ -46,15 +48,15 @@ func InitDB(storageType string, cloudAPIURL string, cloudAPIKey string, cloudTim
 		if cloudAPIURL == "" || cloudAPIKey == "" {
 			return fmt.Errorf("cloud storage requires API URL and key")
 		}
-		Stor = NewCloudStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
+		Stor = remote.NewStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
 	case "sync":
 		ls := NewLocalStorage()
-		ls.confFile = confFile
+		ls.SetConfigFile(confFile)
 		if boltTimeout > 0 {
 			ls.SetTimeout(boltTimeout)
 		}
-		cloud := NewCloudStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
-		Stor = NewSyncStorage(ls, cloud)
+		cloud := remote.NewStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
+		Stor = clientsync.NewMirroredStorage(ls, cloud)
 	default:
 		return fmt.Errorf("unsupported storage type: %s (supported: sqlite, local/bbolt, cloud, sync)", storageType)
 	}
@@ -114,13 +116,13 @@ func MigrateData(sourceType, targetType, sourceAPIURL,
 	switch sourceType {
 	case "local":
 		ls := NewLocalStorage()
-		ls.confFile = srcConfFile
+		ls.SetConfigFile(srcConfFile)
 		sourceStorage = ls
 	case "cloud":
 		if sourceAPIURL == "" || sourceAPIKey == "" {
 			return fmt.Errorf("source cloud storage requires API URL and key")
 		}
-		sourceStorage = NewCloudStorage(sourceAPIURL, sourceAPIKey, sourceTimeout)
+		sourceStorage = remote.NewStorage(sourceAPIURL, sourceAPIKey, sourceTimeout)
 	default:
 		return fmt.Errorf("unsupported source storage type: %s", sourceType)
 	}
@@ -138,13 +140,13 @@ func MigrateData(sourceType, targetType, sourceAPIURL,
 	switch targetType {
 	case "local":
 		ls := NewLocalStorage()
-		ls.confFile = dstConfFile
+		ls.SetConfigFile(dstConfFile)
 		targetStorage = ls
 	case "cloud":
 		if cloudAPIURL == "" || cloudAPIKey == "" {
 			return fmt.Errorf("target cloud storage requires API URL and key")
 		}
-		targetStorage = NewCloudStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
+		targetStorage = remote.NewStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
 	default:
 		return fmt.Errorf("unsupported target storage type: %s", targetType)
 	}

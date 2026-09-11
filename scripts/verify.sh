@@ -1,198 +1,53 @@
-#!/bin/bash
-# 验证脚本 - 编译检查与集成测试
-# 用于 CI/CD 流水线或本地提交前验证
+#!/usr/bin/env bash
+# 完整本地验证：构建产物、CLI 黑盒回归、单元测试、集成测试和静态检查。
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+cd "$ROOT_DIR"
+
+VERIFY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/ttl-verify.XXXXXX")
+VERIFY_HOME="$VERIFY_DIR/home"
+VERIFY_GOPATH=$(go env GOPATH)
+BINARY="$VERIFY_DIR/ttl"
+SERVER_BINARY="$VERIFY_DIR/ttl-server"
+
+cleanup() {
+    rm -rf "$VERIFY_DIR"
+}
+trap cleanup EXIT
+
+mkdir -p "$VERIFY_HOME"
 
 echo "========================================="
-echo "  TTL 项目验证脚本"
+echo "  TTL 项目完整验证"
 echo "========================================="
 
-# 1. 编译检查
 echo ""
-echo "[1/5] 编译检查..."
-go build -o /tmp/ttl-test-binary . || {
-    echo "❌ 编译失败！"
-    exit 1
-}
-echo "✅ 编译成功"
+echo "[1/5] 客户端与服务端构建检查..."
+go build -o "$BINARY" ./cmd/ttl
+go build -o "$SERVER_BINARY" ./cmd/ttl-server
+echo "✅ 构建成功"
 
-# 2. 创建临时测试环境
 echo ""
-echo "[2/5] 创建临时测试环境..."
-TEST_DIR=$(mktemp -d)
-TEST_CONF="$TEST_DIR/test.conf"
-TEST_DB="$TEST_DIR/test.db"
+echo "[2/5] CLI 黑盒回归..."
+"$SCRIPT_DIR/regression.sh" "$BINARY"
 
-cat > "$TEST_CONF" << EOF
-db_path = $TEST_DIR/data.bbolt
-storage_type = bbolt
-EOF
-
-echo "   测试目录: $TEST_DIR"
-echo "✅ 临时环境创建成功"
-
-# 3. 基础功能回归测试
 echo ""
-echo "[3/5] 基础功能回归测试..."
-BINARY="/tmp/ttl-test-binary"
-
-# 资源管理
-echo "   - 测试 add..."
-$BINARY --conf "$TEST_CONF" add "test-resource" "https://example.com" > /dev/null
-
-echo "   - 测试 get..."
-$BINARY --conf "$TEST_CONF" get test-resource | grep -q "example.com"
-
-echo "   - 测试 tag..."
-$BINARY --conf "$TEST_CONF" tag test-resource ci automated > /dev/null
-
-echo "   - 测试 export..."
-$BINARY --conf "$TEST_CONF" export -t resources > "$TEST_DIR/export.csv"
-grep -q "key,value,tags" "$TEST_DIR/export.csv"
-grep -q "test-resource" "$TEST_DIR/export.csv"
-
-echo "   - 测试 dtag..."
-$BINARY --conf "$TEST_CONF" dtag test-resource automated > /dev/null
-
-echo "   - 测试 update..."
-$BINARY --conf "$TEST_CONF" update test-resource "https://updated.example.com" > /dev/null
-
-echo "   - 测试 rename..."
-$BINARY --conf "$TEST_CONF" rename test-resource "renamed-resource" > /dev/null
-
-echo "   - 测试 get (验证 rename)..."
-$BINARY --conf "$TEST_CONF" get renamed-resource | grep -q "updated.example.com"
-
-echo "   - 测试 del..."
-$BINARY --conf "$TEST_CONF" del renamed-resource > /dev/null
-
-echo "   - 验证删除..."
-$BINARY --conf "$TEST_CONF" get renamed-resource 2>&1 | grep -q "未找到"
-
-echo "   - 重新添加测试资源用于后续测试..."
-$BINARY --conf "$TEST_CONF" add "test-resource-2" "https://example2.com" > /dev/null
-
-echo "   - 测试 import..."
-$BINARY --conf "$TEST_CONF" import "$TEST_DIR/export.csv" > /dev/null
-
-echo "   - 测试 log add..."
-$BINARY --conf "$TEST_CONF" log "CI 测试日志" > /dev/null
-
-echo "   - 测试 log list..."
-$BINARY --conf "$TEST_CONF" log -l | grep -q "CI 测试日志"
-
-echo "   - 测试 version..."
-$BINARY version | grep -qE "[0-9]+\.[0-9]+"
-
-echo "   - 测试 config..."
-$BINARY --conf "$TEST_CONF" config | grep -q "数据文件"
-
-echo "   - 测试 history..."
-$BINARY --conf "$TEST_CONF" history 5 | grep -q "test-resource"
-
-echo "   - 测试 audit..."
-$BINARY --conf "$TEST_CONF" audit | grep -q "总操作次数"
-
-echo "   - 测试 tags (list all)..."
-$BINARY --conf "$TEST_CONF" tags | grep -q "ci"
-
-echo "   - 测试 tags (specific tag)..."
-$BINARY --conf "$TEST_CONF" add "tag-test-1" "value1" -t work
-$BINARY --conf "$TEST_CONF" add "tag-test-2" "value2" -t work
-$BINARY --conf "$TEST_CONF" tags work | grep -q "tag-test-1"
-
-echo "   - 测试 encrypt..."
-$BINARY --conf "$TEST_CONF" encrypt --migrate > /dev/null
-# 验证加密后数据仍可读取
-$BINARY --conf "$TEST_CONF" get test-resource-2 | grep -q "example2.com"
-
-echo "   - 测试 key verify..."
-$BINARY key verify > /dev/null
-
-echo "   - 测试 decrypt..."
-$BINARY --conf "$TEST_CONF" decrypt > /dev/null
-# 验证解密后数据仍可读取
-$BINARY --conf "$TEST_CONF" get test-resource-2 | grep -q "example2.com"
-
-# 工作空间测试
-echo "   - 测试 workspace list (empty)..."
-$BINARY --conf "$TEST_CONF" workspace list | grep -q "暂无工作空间"
-
-echo "   - 测试 workspace create..."
-$BINARY --conf "$TEST_CONF" workspace create work > /dev/null
-$BINARY --conf "$TEST_CONF" workspace create life > /dev/null
-
-echo "   - 测试 workspace list..."
-$BINARY --conf "$TEST_CONF" workspace list | grep -q "work"
-$BINARY --conf "$TEST_CONF" workspace list | grep -q "life"
-
-echo "   - 测试 workspace switch..."
-$BINARY --conf "$TEST_CONF" workspace switch work > /dev/null
-
-echo "   - 测试 workspace current..."
-$BINARY --conf "$TEST_CONF" workspace current | grep -q "work"
-
-echo "   - 测试 workspace data isolation (add in work)..."
-$BINARY --conf "$TEST_CONF" add "work-only-resource" "work-value" > /dev/null
-
-echo "   - 测试 workspace data isolation (switch to life)..."
-$BINARY --conf "$TEST_CONF" workspace switch life > /dev/null
-
-echo "   - 测试 workspace data isolation (check work resource not in life)..."
-$BINARY --conf "$TEST_CONF" get "work-only-resource" 2>&1 | grep -q "未找到"
-
-echo "   - 测试 workspace data isolation (add in life)..."
-$BINARY --conf "$TEST_CONF" add "life-only-resource" "life-value" > /dev/null
-$BINARY --conf "$TEST_CONF" get "life-only-resource" | grep -q "life-value"
-
-echo "   - 测试 workspace show..."
-$BINARY --conf "$TEST_CONF" workspace show work | grep -q "Database"
-$BINARY --conf "$TEST_CONF" workspace show work | grep -q "Resources:"
-
-echo "   - 测试 ws alias..."
-$BINARY --conf "$TEST_CONF" ws work > /dev/null
-$BINARY --conf "$TEST_CONF" get "work-only-resource" | grep -q "work-value"
-
-echo "   - 测试 workspace delete (non-current)..."
-$BINARY --conf "$TEST_CONF" workspace switch work > /dev/null
-$BINARY --conf "$TEST_CONF" workspace delete life > /dev/null
-
-echo "   - 测试 workspace list after delete..."
-$BINARY --conf "$TEST_CONF" workspace list | grep -q "work"
-$BINARY --conf "$TEST_CONF" workspace list | grep -q "life" && exit 1 || true
-
-echo "✅ 功能回归测试通过"
-
-# 4. 单元测试
-echo ""
-echo "[4/5] 单元测试..."
-go test ./... > /tmp/unit-test.log 2>&1 || {
-    echo "❌ 单元测试失败！查看日志: /tmp/unit-test.log"
-    cat /tmp/unit-test.log
-    rm -rf "$TEST_DIR"
-    rm -f /tmp/ttl-test-binary
-    exit 1
-}
+echo "[3/5] 单元测试..."
+HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test ./...
 echo "✅ 单元测试通过"
 
-# 5. 集成测试
 echo ""
-echo "[5/5] 集成测试..."
-go test ./integration_test/... > /tmp/integration-test.log 2>&1 || {
-    echo "❌ 集成测试失败！查看日志: /tmp/integration-test.log"
-    cat /tmp/integration-test.log
-    rm -rf "$TEST_DIR"
-    rm -f /tmp/ttl-test-binary
-    exit 1
-}
+echo "[4/5] 集成测试..."
+HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go test ./integration_test/...
 echo "✅ 集成测试通过"
 
-# 6. 清理
 echo ""
-echo "清理临时文件..."
-rm -rf "$TEST_DIR"
-rm -f /tmp/ttl-test-binary
+echo "[5/5] 静态检查..."
+HOME="$VERIFY_HOME" GOPATH="$VERIFY_GOPATH" go vet ./...
+echo "✅ 静态检查通过"
 
 echo ""
 echo "========================================="

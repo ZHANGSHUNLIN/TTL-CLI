@@ -7,6 +7,7 @@ import (
 	"ttl-cli/conf"
 	"ttl-cli/db"
 	"ttl-cli/i18n"
+	storagesqlite "ttl-cli/internal/storage/sqlite"
 
 	"github.com/spf13/cobra"
 )
@@ -188,7 +189,7 @@ var WorkspaceShowCmd = &cobra.Command{
 			if storageType == "" {
 				storageType = "sqlite"
 			}
-			tempStorage := db.NewSQLiteStorage()
+			tempStorage := storagesqlite.NewSQLiteStorage()
 			tempStorage.SetDBPath(dbPath)
 			if err := tempStorage.Init(); err == nil {
 				resources, _ := tempStorage.GetAllResources()
