@@ -203,17 +203,7 @@ func (ms *mockStorage) SaveLogRecord(_ models.LogRecord) error { return nil }
 func (ms *mockStorage) GetLogRecords(_, _ string) ([]models.LogRecord, error) {
 	return nil, nil
 }
-func (ms *mockStorage) DeleteLogRecord(_ int64) error                        { return nil }
-func (ms *mockStorage) SaveChatMessage(_ string, _ models.ChatMessage) error { return nil }
-func (ms *mockStorage) GetChatMessages(_ string) ([]models.ChatMessage, error) {
-	return nil, nil
-}
-func (ms *mockStorage) ClearChatMessages(_ string) error { return nil }
-func (ms *mockStorage) GetSessionMeta(_ string) (*models.SessionMeta, error) {
-	return nil, nil
-}
-func (ms *mockStorage) UpdateSessionMeta(_ string, _ int64) error { return nil }
-
+func (ms *mockStorage) DeleteLogRecord(_ int64) error { return nil }
 func TestPull_Success(t *testing.T) {
 	localStorage := newMockStorage(map[string]string{"local-only": "v1", "shared": "old"})
 	remoteStorage := newMockStorage(map[string]string{"remote-only": "v2", "shared": "new"})

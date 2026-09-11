@@ -2,17 +2,16 @@
 
 # ttl
 
-### AI 駆動のパーソナルナレッジアーカイブ
+### あなたの個人ナレッジアーカイブ
+
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-Supported-green.svg)](https://modelcontextprotocol.io/)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português](README.pt.md)
 
 ---
 
-*キーバリュー形式でデータを保存し、インスタント検索し、AI が自然言語で管理する軽量な個人データ管理 CLI ツール。*
 
 </div>
 
@@ -37,7 +36,6 @@
 - すべてを一箇所にキーバリュー形式で保存
 - タグを付けて整理
 - キーワードで即座に検索
-- AI と自然言語で管理
 
 もう古いメールを探したり、チャット履歴をスクロールする必要はありません。`ttl get <キーワード>` だけですぐに見つかります。
 
@@ -52,11 +50,8 @@
 | 🗄️ **ローカル KV ストレージ** | 高速、設定不要の組み込みデータベース (bbolt) |
 | 🏷️ **タグシステム** | 柔軟で検索可能なタグでリソースを整理 |
 | 🔍 **ファジー検索** | キーとタグをまたいで即座に検索 |
-| 🤖 **AI エージェント** | 自然言語でデータを管理 (OpenAI / DeepSeek / Ollama) |
-| 📝 **作業ログ** | 日次作業を追跡し、AI で週報/月報を生成 |
-| 🔗 **MCP プロトコル** | AI ツール (Claude Code、Cursor) がデータを直接操作 |
+| 📝 **作業ログ** | 日次作業を記録・絞り込み |
 | ☁️ **クラウド同期** | マルチテナントサーバーを自己ホスト、ユーザーごとのデータ分離 |
-| 🔒 **プライバシー優先** | AI は値を送信しない — キーとタグのみ |
 | 🚀 **スマートオープン** | システムデフォルトプログラムで URL とファイルを開く |
 | 📤 **エクスポート** | JSON または CSV 形式でエクスポート |
 
@@ -120,39 +115,10 @@ ttl del old-key
 
 ---
 
-## 🤖 AI エージェント
-
-1つのコマンドで10コマンド分のことができます。自然言語で望むことを説明してください。
-
-```bash
-# まず AI を設定
-ttl config ai
-
-# そして自然言語を使用
-ttl ai "この nginx 設定を保存：ポート 8080 を 443 に変更"
-ttl ai "docker 関連のリソースをすべて見つけて"
-ttl ai "sugar ダッシュボードを開いて"
-ttl ai "最近何を保存した？"
-ttl ai "nginx-config に ops と deploy タグを追加して"
-```
-
-### プライバシー・バイ・デザイン
-
-AI エージェントは LLM に**リソースキーとタグのみ**を送信します。値（パスワード、トークン、内部 URL、機密データを含む可能性がある）はあなたのマシンから離れることはありません。作業ログの内容のみ、要約のために完全に送信されます。
-
-### 対応モデル
-
-- OpenAI (GPT-4、GPT-4o、GPT-4o-mini)
-- DeepSeek
-- Moonshot
-- Ollama (ローカルモデル)
-- OpenAI Chat Completions API 互換のモデル
-
----
 
 ## 📝 作業ログ
 
-日次作業を記録し、AI にレポートを生成させます。
+日次作業を記録・絞り込みます。
 
 ```bash
 # ログを書く
@@ -163,51 +129,10 @@ ttl log list                    # 今日のログ
 ttl log list --range week       # 今週
 ttl log list --range month      # 今月
 
-# AI による週報
-ttl ai "今週の作業ログを要約して"
-ttl ai "Markdown 形式で週報を生成して"
 ```
 
 ---
 
-## 🔗 MCP プロトコル統合
-
-[Model Context Protocol](https://modelcontextprotocol.io/) 経由で AI ツールにデータを操作させます。
-
-### MCP サーバーを開始
-
-```bash
-ttl mcp
-```
-
-### Claude Code 連携
-
-`~/.claude/claude_code_config.json` に追加：
-
-```json
-{
-  "mcpServers": {
-    "ttl": {
-      "command": "ttl",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-これで Claude Code がリソースを直接読み書き・管理できるようになります！
-
-**使用可能な MCP ツール：**
-- `ttl_get` — リソースを取得
-- `ttl_add` — 新しいリソースを追加
-- `ttl_update` — リソースを更新
-- `ttl_delete` — リソースを削除
-- `ttl_tag` — タグを追加
-- `ttl_dtag` — タグを削除
-- `ttl_open` — リソースを開く
-- `ttl_rename` — リソースの名前を変更
-
----
 
 ## ☁️ クラウドサーバーと同期
 
@@ -236,7 +161,6 @@ ttl sync
 - ユーザーごとの分離データベースを持つマルチテナント設計
 - API Key 認証
 - プログラム的アクセス用の REST API
-- AI クライアント用の MCP HTTP エンドポイント `/mcp`
 
 ---
 
@@ -248,12 +172,6 @@ ttl sync
 [default]
 db_path = ~/.ttl/data.db
 
-[ai]
-api_key   = your-api-key-here
-base_url  = https://api.openai.com
-model     = gpt-4o-mini
-timeout   = 30
-
 [server]
 endpoint  = https://your-server.com
 api_key   = your-user-api-key
@@ -263,8 +181,6 @@ api_key   = your-user-api-key
 # 現在の設定を表示
 ttl config
 
-# 対話的な AI 設定
-ttl config ai
 ```
 
 ---
@@ -291,14 +207,9 @@ ttl
 ├── main.go              # エントリーポイント、CLI 設定 (cobra)
 ├── command/             # CLI コマンド定義
 │   ├── commands.go      # コアコマンド (get/add/del/tag/open...)
-│   ├── ai.go            # AI エージェントコマンド
 │   ├── log.go           # 作業ログコマンド
 │   ├── export.go        # エクスポートコマンド
 │   └── server.go        # サーバーコマンド
-├── ai/                  # AI エージェント (ReAct ループ)
-│   ├── client.go        # LLM HTTP クライアント
-│   ├── agent.go         # ReAct エンジン + ツール実行
-│   └── prompt.go        # システムプロンプト
 ├── db/                  # ストレージレイヤー (bbolt)
 │   ├── db.go            # データベース初期化
 │   ├── storage.go       # ローカルストレージ実装
@@ -309,9 +220,6 @@ ttl
 │   ├── server.go        # サーバー起動
 │   ├── handlers.go      # REST API ハンドラー
 │   └── middleware.go     # 認証ミドルウェア
-├── mcp/                 # MCP プロトコル
-│   ├── tools.go         # MCP ツール定義
-│   └── handlers.go      # MCP ツールハンドラー
 ├── sync/                # データ同期ロジック
 ├── models/              # 共有データモデル
 ├── conf/                # 設定ファイル (INI) 処理
@@ -328,8 +236,6 @@ ttl
 | CLI フレームワーク | [cobra](https://github.com/spf13/cobra) |
 | ストレージ | [bbolt](https://github.com/etcd-io/bbolt) |
 | 設定 | [ini.v1](https://gopkg.in/ini.v1) |
-| MCP プロトコル | [mcp-go](https://github.com/mark3labs/mcp-go) |
-| AI API | OpenAI Chat Completions API (互換) |
 
 ---
 
@@ -367,7 +273,6 @@ ttl
 
 - 素晴らしい CLI フレームワーク [cobra](https://github.com/spf13/cobra)
 - 信頼性の高い組み込みキーバリューストレージ [bbolt](https://github.com/etcd-io/bbolt)
-- MCP プロトコルサポート [mcp-go](https://github.com/mark3labs/mcp-go)
 - オープンソースコミュニティ
 
 ---

@@ -106,24 +106,10 @@
     },
     "config": {
       "short": "Show configuration",
-      "long": "Show information about data file location. Use subcommand 'config ai' to configure AI functionality.",
+      "long": "Show information about data file location.",
       "error_get_path": "Failed to get config path: %w",
       "data_path_label": "Data file location:",
-      "config_path_label": "Config file location:",
-      "ai_config_label": "AI Configuration:"
-    },
-    "config_ai": {
-      "short": "Configure AI",
-      "long": "Interactively configure AI parameters (API Key, model URL, etc.).",
-      "title": "=== Configure AI ===",
-      "api_key_prompt": "API Key (required): ",
-      "api_key_current": "API Key [current: %s]: ",
-      "api_key_empty": "API Key cannot be empty",
-      "api_url_prompt": "API URL [%s]: ",
-      "model_prompt": "Model name [%s]: ",
-      "timeout_prompt": "Timeout (seconds) [%d]: ",
-      "error_save": "Failed to save AI config: %w",
-      "success": "Configuration saved!"
+      "config_path_label": "Config file location:"
     },
     "version": {
       "short": "Show version",
@@ -198,16 +184,9 @@
       "flag_type": "Export type: resources / audit / history / log",
       "flag_bom": "Write UTF-8 BOM (fix Excel Chinese encoding issues)"
     },
-    "ai": {
-      "use": "ai <natural language input>",
-      "short": "Manage data with natural language",
-      "long": "Interact with AI assistant using natural language. One command replaces ten.",
-      "not_configured": "Please configure AI first: run 'ttl config ai'",
-      "thinking": "Thinking..."
-    },
     "server": {
       "short": "Start HTTP backend or manage users",
-      "long": "Start multi-tenant HTTP service (REST API + MCP HTTP endpoints), or manage users via user subcommands.",
+      "long": "Start multi-tenant HTTP service (REST API), or manage users via user subcommands.",
       "user": {
         "short": "User management",
         "long": "Manage multi-tenant users, including create, list, disable, enable, reset Key, delete, etc."
@@ -256,43 +235,6 @@
       "skipped": "Skipped",
       "invalid_choice": "Invalid choice: %s",
       "invalid_direction": "Invalid sync direction: %s (supported: pull, push, auto)"
-    },
-    "mcp": {
-      "short": "Start local MCP Server (stdio transport)",
-      "long": "Start MCP Server, communicating via stdin/stdout with AI clients.",
-      "added_successfully": "Added successfully",
-      "key_already_exists": "Key already exists: ",
-      "failed_to_save": "Failed to save resource",
-      "failed_to_get": "Failed to get resources",
-      "no_resources": "No resources",
-      "all_resources": "All resources:\n",
-      "not_found": "Resource not found: ",
-      "resource_not_found": "Resource not found",
-      "failed_to_update": "Failed to update resource",
-      "failed_to_save_resource": "Failed to save resource",
-      "failed_to_get_resources": "Failed to get resources",
-      "at_least_one_tag_required": "At least one tag is required",
-      "tag_added_successfully": "Tags added successfully",
-      "tag_deleted_successfully": "Tag deleted successfully",
-      "rename_successfully": "Renamed successfully",
-      "not_found_resource": "Resource not found",
-      "failed_to_delete_old": "Failed to delete old resource",
-      "failed_to_save_new": "Failed to save new resource",
-      "resource_label": "Resource: ",
-      "tags_label": "Tags: ",
-      "deleted_successfully": "Deleted successfully",
-      "content_required": "Log content is required",
-      "failed_to_save_log": "Failed to save log",
-      "log_recorded": "Log recorded: %s%s (%s)",
-      "no_log_records": "No log records during period %s ~ %s",
-      "log_deleted_successfully": "Log deleted successfully",
-      "id_required": "Log ID cannot be empty",
-      "failed_to_delete_log": "Failed to delete log",
-      "unsupported_export_type": "Unsupported export type: %s (supported: resources, audit, history, log)",
-      "failed_to_get_audit": "Failed to get audit records",
-      "failed_to_get_history": "Failed to get history records",
-      "failed_to_get_log": "Failed to get log records",
-      "total_records": "Total %d records"
     },
     "encrypt": {
       "short": "Enable data encryption",
@@ -456,29 +398,8 @@
       "config_not_exist": "Config file does not exist: %s",
       "load_config": "Failed to load config file: %w",
       "parse_config": "Failed to parse config file: %w",
-      "parse_ai_config": "Failed to parse AI config: %w",
       "save_default_config": "Failed to save default config: %w"
     }
-  },
-  "ai": {
-    "call_failed": "AI call failed: %w",
-    "max_steps": "Operation completed (max reasoning steps reached)",
-    "truncated": "...(result too long, truncated)",
-    "unknown_action": "Unknown action: %s",
-    "exec_failed": "Execution failed: %s",
-    "no_resources": "No resources stored currently",
-    "not_found_keyword": "No resources found matching \"%s\"",
-    "open_failed": "Failed to open: %w",
-    "open_manually": "Please open manually: %s",
-    "delete_confirm": "About to delete: %s\nConfirm deletion with: ttl del %s",
-    "log_empty": "No log records in period %s ~ %s",
-    "log_id_invalid": "Log ID format is incorrect, should be a number",
-    "log_deleted": "Log deleted successfully",
-    "export_resources": "%d resources available for export. Use `ttl export --type resources` to export as CSV",
-    "export_audit": "%d audit records available for export. Use `ttl export --type audit` to export as CSV",
-    "export_history": "%d history records available for export. Use `ttl export --type history` to export as CSV",
-    "export_log": "%d work log records available for export. Use `ttl export --type log` to export as CSV",
-    "export_unsupported": "Unsupported export type: %s. Supported types: resources, audit, history, log"
   },
   "sync": {
     "dry_run_delete_local": "[dry-run] Delete local resource: %s",

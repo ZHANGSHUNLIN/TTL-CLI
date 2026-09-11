@@ -2,17 +2,15 @@
 
 # ttl
 
-### Seu Arquivo Pessoal de Conhecimento, Impulsionado por IA
+### Seu Arquivo Pessoal de Conhecimento
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-Supported-green.svg)](https://modelcontextprotocol.io/)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 ---
 
-*Uma ferramenta CLI leve para gerenciamento de dados pessoais. Armazene qualquer coisa como pares chave-valor, busque instantaneamente e deixe a IA gerenciar tudo com linguagem natural.*
 
 </div>
 
@@ -37,7 +35,6 @@ O nome vem de "Time to Live" — mas com um significado diferente. Em vez de exp
 - Armazene tudo em um só lugar como pares chave-valor
 - Marque com tags para fácil organização
 - Busque instantaneamente por palavra-chave
-- Use IA para gerenciar com linguagem natural
 
 Chega de procurar em emails antigos ou rolar o histórico do Slack. Apenas `ttl get <palavra-chave>` e você tem.
 
@@ -52,11 +49,7 @@ Chega de procurar em emails antigos ou rolar o histórico do Slack. Apenas `ttl 
 | 🗄️ **Armazenamento KV Local** | Banco de dados embarcado rápido, sem configuração (bbolt) |
 | 🏷️ **Sistema de Tags** | Organize recursos com tags flexíveis e pesquisáveis |
 | 🔍 **Busca Fuzzy** | Encontre o que precisa instantaneamente entre chaves e tags |
-| 🤖 **Agente IA** | Gerencie dados com linguagem natural (OpenAI / DeepSeek / Ollama) |
-| 📝 **Log de Trabalho** | Acompanhe o trabalho diário, gere relatórios semanais/mensais com IA |
-| 🔗 **Protocolo MCP** | Deixe ferramentas IA (Claude Code, Cursor) operar seus dados diretamente |
 | ☁️ **Sincronização em Nuvem** | Auto-hospede um servidor multi-tenant com isolamento de dados por usuário |
-| 🔒 **Privacidade Primeiro** | A IA nunca envia seus valores — apenas chaves e tags |
 | 🚀 **Abertura Inteligente** | Abra URLs e arquivos com programas padrão do sistema |
 | 📤 **Exportar** | Exporte dados como JSON ou CSV |
 
@@ -120,39 +113,10 @@ ttl del old-key
 
 ---
 
-## 🤖 Agente IA
-
-Um comando substitui dez. Apenas descreva o que quer em linguagem natural.
-
-```bash
-# Primeiro configure a IA
-ttl config ai
-
-# Depois use linguagem natural
-ttl ai "salva esta config nginx: porta 8080 mudada para 443"
-ttl ai "encontre todos meus recursos relacionados a docker"
-ttl ai "abra o dashboard sugar"
-ttl ai "o que eu salvei recentemente?"
-ttl ai "tag nginx-config com ops e deploy"
-```
-
-### Privacidade por Design
-
-O Agente IA apenas envia **chaves e tags de recursos** para o LLM. Seus valores — que podem conter senhas, tokens, URLs internas ou dados sensíveis — nunca deixam sua máquina. Apenas o conteúdo do log de trabalho é enviado completo para gerar resumos.
-
-### Modelos Compatíveis
-
-- OpenAI (GPT-4, GPT-4o, GPT-4o-mini)
-- DeepSeek
-- Moonshot
-- Ollama (modelos locais)
-- Qualquer modelo compatível com OpenAI Chat Completions API
-
----
 
 ## 📝 Log de Trabalho
 
-Acompanhe seu trabalho diário e deixe a IA gerar relatórios.
+Acompanhe e filtre seu trabalho diário.
 
 ```bash
 # Escrever uma entrada de log
@@ -163,51 +127,10 @@ ttl log list                    # Logs de hoje
 ttl log list --range week       # Esta semana
 ttl log list --range month      # Este mês
 
-# Relatório semanal com IA
-ttl ai "resuma meus logs de trabalho desta semana"
-ttl ai "gere um relatório semanal em formato markdown"
 ```
 
 ---
 
-## 🔗 Integração com Protocolo MCP
-
-Deixe ferramentas IA operar seus dados via [Model Context Protocol](https://modelcontextprotocol.io/).
-
-### Iniciar Servidor MCP
-
-```bash
-ttl mcp
-```
-
-### Integração com Claude Code
-
-Adicione ao `~/.claude/claude_code_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "ttl": {
-      "command": "ttl",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Agora Claude Code pode ler, escrever e gerenciar seus recursos diretamente!
-
-**Ferramentas MCP disponíveis:**
-- `ttl_get` — Obter recursos
-- `ttl_add` — Adicionar novos recursos
-- `ttl_update` — Atualizar recursos existentes
-- `ttl_delete` — Deletar recursos
-- `ttl_tag` — Adicionar tags
-- `ttl_dtag` — Remover tags
-- `ttl_open` — Abrir recursos
-- `ttl_rename` — Renomear recursos
-
----
 
 ## ☁️ Servidor em Nuvem e Sincronização
 
@@ -236,7 +159,6 @@ ttl sync
 - Design multi-tenant com bancos de dados isolados por usuário
 - Autenticação via API Key
 - REST API para acesso programático
-- Endpoint HTTP MCP em `/mcp` para clientes IA
 
 ---
 
@@ -248,12 +170,6 @@ Arquivo de configuração: `~/.ttl/ttl.ini`
 [default]
 db_path = ~/.ttl/data.db
 
-[ai]
-api_key   = sua-api-key-aqui
-base_url  = https://api.openai.com
-model     = gpt-4o-mini
-timeout   = 30
-
 [server]
 endpoint  = https://seu-servidor.com
 api_key   = sua-user-api-key
@@ -263,8 +179,6 @@ api_key   = sua-user-api-key
 # Ver configuração atual
 ttl config
 
-# Configurar IA interativamente
-ttl config ai
 ```
 
 ---
@@ -291,14 +205,9 @@ ttl
 ├── main.go              # Ponto de entrada, configuração CLI (cobra)
 ├── command/             # Definições de comandos CLI
 │   ├── commands.go      # Comandos principais (get/add/del/tag/open...)
-│   ├── ai.go            # Comando do Agente IA
 │   ├── log.go           # Comandos de log de trabalho
 │   ├── export.go        # Comando de exportação
 │   └── server.go        # Comandos do servidor
-├── ai/                  # Agente IA (loop ReAct)
-│   ├── client.go        # Cliente HTTP LLM
-│   ├── agent.go         # Motor ReAct + execução de ferramentas
-│   └── prompt.go        # Prompt do sistema
 ├── db/                  # Camada de armazenamento (bbolt)
 │   ├── db.go            # Inicialização do banco de dados
 │   ├── storage.go       # Implementação do armazenamento local
@@ -309,9 +218,6 @@ ttl
 │   ├── server.go        # Inicialização do servidor
 │   ├── handlers.go      # Handlers da API REST
 │   └── middleware.go     # Middleware de autenticação
-├── mcp/                 # Protocolo MCP
-│   ├── tools.go         # Definições das ferramentas MCP
-│   └── handlers.go      # Handlers das ferramentas MCP
 ├── sync/                # Lógica de sincronização de dados
 ├── models/              # Modelos de dados compartilhados
 ├── conf/                # Manipulação do arquivo de configuração (INI)
@@ -328,8 +234,6 @@ ttl
 | Framework CLI | [cobra](https://github.com/spf13/cobra) |
 | Armazenamento | [bbolt](https://github.com/etcd-io/bbolt) |
 | Configuração | [ini.v1](https://gopkg.in/ini.v1) |
-| Protocolo MCP | [mcp-go](https://github.com/mark3labs/mcp-go) |
-| API IA | OpenAI Chat Completions API (compatível) |
 
 ---
 
@@ -367,7 +271,6 @@ Este projeto está licenciado sob a Apache License 2.0 - veja o arquivo [LICENSE
 
 - [cobra](https://github.com/spf13/cobra) pelo excelente framework CLI
 - [bbolt](https://github.com/etcd-io/bbolt) pelo armazenamento key-value embarcado confiável
-- [mcp-go](https://github.com/mark3labs/mcp-go) pelo suporte ao protocolo MCP
 - A comunidade open-source
 
 ---

@@ -106,24 +106,10 @@
     },
     "config": {
       "short": "Afficher la configuration",
-      "long": "Afficher des informations sur l'emplacement du fichier de données. Utilisez la sous-commande 'config ai' pour configurer la fonctionnalité AI.",
+      "long": "Afficher des informations sur l'emplacement du fichier de données.",
       "error_get_path": "Échec de l'obtention du chemin de configuration: %w",
       "data_path_label": "Emplacement du fichier de données:",
-      "config_path_label": "Emplacement du fichier de configuration:",
-      "ai_config_label": "Configuration AI:"
-    },
-    "config_ai": {
-      "short": "Configurer l'AI",
-      "long": "Configurer de manière interactive les paramètres AI (Clé API, URL du modèle, etc.).",
-      "title": "=== Configuration AI ===",
-      "api_key_prompt": "Clé API (requis): ",
-      "api_key_current": "Clé API [actuel: %s]: ",
-      "api_key_empty": "La clé API ne peut pas être vide",
-      "api_url_prompt": "URL API [%s]: ",
-      "model_prompt": "Nom du modèle [%s]: ",
-      "timeout_prompt": "Délai d'attente (secondes) [%d]: ",
-      "error_save": "Échec de l'enregistrement de la configuration AI: %w",
-      "success": "Configuration enregistrée!"
+      "config_path_label": "Emplacement du fichier de configuration:"
     },
     "version": {
       "short": "Afficher la version",
@@ -198,16 +184,9 @@
       "flag_type": "Type d'exportation: resources / audit / history / log",
       "flag_bom": "Écrire le BOM UTF-8 (corrige les problèmes d'encodage Excel)"
     },
-    "ai": {
-      "use": "ai <entrée en langage naturel>",
-      "short": "Gérer les données en langage naturel",
-      "long": "Interagir avec l'assistant AI en langage naturel. Une commande en remplace dix.",
-      "not_configured": "Veuillez d'abord configurer l'AI: exécutez 'ttl config ai'",
-      "thinking": "Réflexion..."
-    },
     "server": {
       "short": "Démarrer le backend HTTP ou gérer les utilisateurs",
-      "long": "Démarrer le service HTTP multi-locataire (API REST + endpoints HTTP MCP), ou gérer les utilisateurs via les sous-commandes utilisateur.",
+      "long": "Démarrer le service HTTP multi-locataire (API REST), ou gérer les utilisateurs via les sous-commandes utilisateur.",
       "user": {
         "short": "Gestion des utilisateurs",
         "long": "Gérer les utilisateurs multi-locataires, y compris créer, lister, désactiver, activer, réinitialiser la clé, supprimer, etc."
@@ -256,43 +235,6 @@
       "skipped": "Ignoré",
       "invalid_choice": "Choix invalide: %s",
       "invalid_direction": "Direction de synchronisation invalide: %s (formats pris en charge: pull, push, auto)"
-    },
-    "mcp": {
-      "short": "Démarrer le serveur MCP local (transport stdio)",
-      "long": "Démarrer le serveur MCP, communiquant via stdin/stdout avec les clients AI.",
-      "added_successfully": "Ajouté avec succès",
-      "key_already_exists": "La clé existe déjà: ",
-      "failed_to_save": "Échec de l'enregistrement de la ressource",
-      "failed_to_get": "Échec de la récupération des ressources",
-      "no_resources": "Aucune ressource",
-      "all_resources": "Toutes les ressources:\n",
-      "not_found": "Ressource non trouvée: ",
-      "resource_not_found": "Ressource non trouvée",
-      "failed_to_update": "Échec de la mise à jour de la ressource",
-      "failed_to_save_resource": "Échec de l'enregistrement de la ressource",
-      "failed_to_get_resources": "Échec de la récupération des ressources",
-      "at_least_one_tag_required": "Au moins un tag est requis",
-      "tag_added_successfully": "Tags ajoutés avec succès",
-      "tag_deleted_successfully": "Tag supprimé avec succès",
-      "rename_successfully": "Renommé avec succès",
-      "not_found_resource": "Ressource non trouvée",
-      "failed_to_delete_old": "Échec de la suppression de l'ancienne ressource",
-      "failed_to_save_new": "Échec de l'enregistrement de la nouvelle ressource",
-      "resource_label": "Ressource: ",
-      "tags_label": "Tags: ",
-      "deleted_successfully": "Supprimé avec succès",
-      "content_required": "Le contenu du journal est requis",
-      "failed_to_save_log": "Échec de l'enregistrement du journal",
-      "log_recorded": "Journal enregistré: %s%s (%s)",
-      "no_log_records": "Aucun enregistrement de journal pendant la période %s ~ %s",
-      "log_deleted_successfully": "Journal supprimé avec succès",
-      "id_required": "L'ID du journal ne peut pas être vide",
-      "failed_to_delete_log": "Échec de la suppression du journal",
-      "unsupported_export_type": "Type d'exportation non pris en charge: %s (formats pris en charge: resources, audit, history, log)",
-      "failed_to_get_audit": "Échec de la récupération des enregistrements d'audit",
-      "failed_to_get_history": "Échec de la récupération des enregistrements d'historique",
-      "failed_to_get_log": "Échec de la récupération des enregistrements de journal",
-      "total_records": "Total de %d enregistrements"
     },
     "encrypt": {
       "short": "Activer le chiffrement des données",
@@ -421,29 +363,8 @@
       "config_not_exist": "Le fichier de configuration n'existe pas: %s",
       "load_config": "Échec du chargement du fichier de configuration: %w",
       "parse_config": "Échec de l'analyse du fichier de configuration: %w",
-      "parse_ai_config": "Échec de l'analyse de la configuration AI: %w",
       "save_default_config": "Échec de l'enregistrement de la configuration par défaut: %w"
     }
-  },
-  "ai": {
-    "call_failed": "Échec de l'appel AI: %w",
-    "max_steps": "Opération terminée (nombre maximum d'étapes de raisonnement atteint)",
-    "truncated": "...(résultat trop long, tronqué)",
-    "unknown_action": "Action inconnue: %s",
-    "exec_failed": "Échec de l'exécution: %s",
-    "no_resources": "Aucune ressource stockée actuellement",
-    "not_found_keyword": "Aucune ressource trouvée correspondant à \"%s\"",
-    "open_failed": "Échec de l'ouverture: %w",
-    "open_manually": "Veuillez ouvrir manuellement: %s",
-    "delete_confirm": "Sur le point de supprimer: %s\nConfirmez la suppression avec: ttl del %s",
-    "log_empty": "Aucun enregistrement de journal pendant la période %s ~ %s",
-    "log_id_invalid": "Format d'ID de journal incorrect, doit être un nombre",
-    "log_deleted": "Journal supprimé avec succès",
-    "export_resources": "%d ressources disponibles pour l'export. Utilisez `ttl export --type resources` pour exporter au format CSV",
-    "export_audit": "%d enregistrements d'audit disponibles pour l'export. Utilisez `ttl export --type audit` pour exporter au format CSV",
-    "export_history": "%d enregistrements d'historique disponibles pour l'export. Utilisez `ttl export --type history` pour exporter au format CSV",
-    "export_log": "%d enregistrements de journal de travail disponibles pour l'export. Utilisez `ttl export --type log` pour exporter au format CSV",
-    "export_unsupported": "Type d'exportation non pris en charge: %s. Types pris en charge: resources, audit, history, log"
   },
   "sync": {
     "dry_run_delete_local": "[dry-run] Supprimer la ressource locale: %s",

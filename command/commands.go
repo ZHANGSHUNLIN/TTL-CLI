@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -9,8 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"sort"
-	"strconv"
-	"strings"
 	"ttl-cli/conf"
 	"ttl-cli/db"
 	"ttl-cli/i18n"
@@ -355,201 +352,8 @@ var ConfigCmd = &cobra.Command{
 			Println(i18n.T("command.config.config_path_label"), confPath)
 		}
 
-		aiConf, err := conf.LoadAIConfig("")
-		if err == nil && aiConf.APIKey != "" {
-			masked := aiConf.APIKey[:4] + "****"
-			Println()
-			Println(i18n.T("command.config.ai_config_label"))
-			Println("  api_key  =", masked)
-			Println("  base_url =", aiConf.BaseURL)
-			Println("  model    =", aiConf.Model)
-			Println("  timeout  =", aiConf.Timeout)
-		}
 		return nil
 	},
-}
-
-var configAICmd = &cobra.Command{
-	Use:   "ai",
-	Short: i18n.T("command.config_ai.short"),
-	Long:  i18n.T("command.config_ai.long"),
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		reader := bufio.NewReader(os.Stdin)
-
-		existing, _ := conf.LoadAIConfig("")
-
-		Println(i18n.T("command.config_ai.title"))
-		Println()
-
-		if existing.APIKey != "" {
-			masked := existing.APIKey[:4] + "****"
-			Printf(i18n.T("command.config_ai.api_key_current"), masked)
-		} else {
-			Print(i18n.T("command.config_ai.api_key_prompt"))
-		}
-		apiKey := readLine(reader)
-		if apiKey == "" {
-			apiKey = existing.APIKey
-		}
-		if apiKey == "" {
-			return errors.New(i18n.T("command.config_ai.api_key_empty"))
-		}
-
-		defaultURL := existing.BaseURL
-		if defaultURL == "" {
-			defaultURL = "https://api.openai.com"
-		}
-		Printf(i18n.T("command.config_ai.api_url_prompt"), defaultURL)
-		baseURL := readLine(reader)
-		if baseURL == "" {
-			baseURL = defaultURL
-		}
-
-		defaultModel := existing.Model
-		if defaultModel == "" {
-			defaultModel = "gpt-4o-mini"
-		}
-		Printf(i18n.T("command.config_ai.model_prompt"), defaultModel)
-		model := readLine(reader)
-		if model == "" {
-			model = defaultModel
-		}
-
-		defaultTimeout := existing.Timeout
-		if defaultTimeout == 0 {
-			defaultTimeout = 30
-		}
-		Printf(i18n.T("command.config_ai.timeout_prompt"), defaultTimeout)
-		timeoutStr := readLine(reader)
-		timeout := defaultTimeout
-		if timeoutStr != "" {
-			if n, err := strconv.Atoi(timeoutStr); err == nil && n > 0 {
-				timeout = n
-			}
-		}
-
-		aiConf := models.AIConfig{
-			APIKey:  apiKey,
-			BaseURL: baseURL,
-			Model:   model,
-			Timeout: timeout,
-		}
-
-		if err := conf.SaveAIConfig("", aiConf); err != nil {
-			return fmt.Errorf(i18n.T("command.config_ai.error_save"), err)
-		}
-
-		masked := apiKey[:4] + "****"
-		Println()
-		Println(i18n.T("command.config_ai.success"))
-		Println("  api_key  =", masked)
-		Println("  base_url =", baseURL)
-		Println("  model    =", model)
-		Println("  timeout  =", timeout)
-		return nil
-	},
-}
-
-var configAIContextCmd = &cobra.Command{
-	Use:   "ai-context",
-	Short: "Configure AI multi-turn chat context settings",
-	Long:  "Configure AI multi-turn chat context settings (idle timeout, max rounds, max tokens)",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		reader := bufio.NewReader(os.Stdin)
-
-		existing, _ := conf.LoadAIConfig("")
-
-		Println("配置多轮对话上下文")
-		Println()
-
-		defaultEnabled := "n"
-		if existing.ContextEnabled {
-			defaultEnabled = "y"
-		}
-		Printf("启用多轮上下文？ (y/n, 默认: %s): ", defaultEnabled)
-		enabledStr := readLine(reader)
-		if enabledStr == "" {
-			enabledStr = defaultEnabled
-		}
-		enabled := enabledStr == "y" || enabledStr == "Y"
-
-		var idleTTL, maxRounds, maxTokens int
-
-		if enabled {
-			defaultIdleTTL := existing.ContextIdleTTL
-			if defaultIdleTTL == 0 {
-				defaultIdleTTL = 30
-			}
-			Printf("会话空闲超时(分钟) (默认: %d): ", defaultIdleTTL)
-			idleTTLStr := readLine(reader)
-			if idleTTLStr == "" {
-				idleTTL = defaultIdleTTL
-			} else if n, err := strconv.Atoi(idleTTLStr); err == nil && n > 0 {
-				idleTTL = n
-			} else {
-				idleTTL = defaultIdleTTL
-			}
-
-			defaultMaxRounds := existing.ContextMaxRounds
-			if defaultMaxRounds == 0 {
-				defaultMaxRounds = 10
-			}
-			Printf("最大对话轮次 (默认: %d, 0=不限制): ", defaultMaxRounds)
-			maxRoundsStr := readLine(reader)
-			if maxRoundsStr == "" {
-				maxRounds = defaultMaxRounds
-			} else if n, err := strconv.Atoi(maxRoundsStr); err == nil && n >= 0 {
-				maxRounds = n
-			} else {
-				maxRounds = defaultMaxRounds
-			}
-
-			defaultMaxTokens := existing.ContextMaxTokens
-			if defaultMaxTokens == 0 {
-				defaultMaxTokens = 4000
-			}
-			Printf("最大 Token 数 (默认: %d, 0=不限制): ", defaultMaxTokens)
-			maxTokensStr := readLine(reader)
-			if maxTokensStr == "" {
-				maxTokens = defaultMaxTokens
-			} else if n, err := strconv.Atoi(maxTokensStr); err == nil && n >= 0 {
-				maxTokens = n
-			} else {
-				maxTokens = defaultMaxTokens
-			}
-		}
-
-		aiConf := existing
-		aiConf.ContextEnabled = enabled
-		aiConf.ContextIdleTTL = idleTTL
-		aiConf.ContextMaxRounds = maxRounds
-		aiConf.ContextMaxTokens = maxTokens
-
-		if err := conf.SaveAIConfig("", aiConf); err != nil {
-			return fmt.Errorf("保存配置失败: %w", err)
-		}
-
-		Println()
-		Println("配置已保存：")
-		if enabled {
-			Printf("  多轮上下文: 已启用 (空闲超时=%d分钟, 最大%d轮, 最大%d tokens)\n", idleTTL, maxRounds, maxTokens)
-		} else {
-			Println("  多轮上下文: 已禁用")
-		}
-		return nil
-	},
-}
-
-func init() {
-	ConfigCmd.AddCommand(configAICmd)
-	ConfigCmd.AddCommand(configAIContextCmd)
-}
-
-func readLine(reader *bufio.Reader) string {
-	line, _ := reader.ReadString('\n')
-	return strings.TrimSpace(line)
 }
 
 var VersionCmd = &cobra.Command{

@@ -90,7 +90,6 @@ func TestT_English(t *testing.T) {
 		{"Add duplicate with arg", "command.add.duplicate", []interface{}{"testkey"}, "Key already exists: testkey"},
 		{"Get not found with arg", "command.get.not_found", []interface{}{"mykey"}, "Resource not found: mykey"},
 		{"Root short", "root.short", nil, "Personal data management system"},
-		{"Complex nested", "command.ai.thinking", nil, "Thinking..."},
 	}
 
 	for _, tt := range tests {

@@ -108,18 +108,6 @@ func (s *SQLiteStorage) createTables() error {
 			date TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_logs_date ON logs(date)`,
-		`CREATE TABLE IF NOT EXISTS chats (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			session_id TEXT NOT NULL,
-			role TEXT NOT NULL,
-			content TEXT NOT NULL,
-			timestamp INTEGER NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_chats_session_timestamp ON chats(session_id, timestamp)`,
-		`CREATE TABLE IF NOT EXISTS sessions (
-			session_id TEXT PRIMARY KEY,
-			last_active INTEGER NOT NULL
-		)`,
 	}
 
 	for _, table := range tables {
@@ -498,77 +486,6 @@ func (s *SQLiteStorage) DeleteLogRecord(id int64) error {
 	_, err := s.db.Exec(`DELETE FROM logs WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("删除日志记录失败: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLiteStorage) SaveChatMessage(sessionID string, message models.ChatMessage) error {
-	_, err := s.db.Exec(
-		`INSERT INTO chats (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)`,
-		sessionID, message.Role, message.Content, message.Timestamp,
-	)
-	if err != nil {
-		return fmt.Errorf("保存聊天消息失败: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLiteStorage) GetChatMessages(sessionID string) ([]models.ChatMessage, error) {
-	var messages []models.ChatMessage
-
-	rows, err := s.db.Query(`
-		SELECT role, content, timestamp
-		FROM chats
-		WHERE session_id = ?
-		ORDER BY timestamp ASC
-	`, sessionID)
-	if err != nil {
-		return nil, fmt.Errorf("查询聊天消息失败: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var msg models.ChatMessage
-		if err := rows.Scan(&msg.Role, &msg.Content, &msg.Timestamp); err != nil {
-			return nil, fmt.Errorf("扫描聊天消息行失败: %w", err)
-		}
-		messages = append(messages, msg)
-	}
-
-	return messages, nil
-}
-
-func (s *SQLiteStorage) ClearChatMessages(sessionID string) error {
-	_, err := s.db.Exec(`DELETE FROM chats WHERE session_id = ?`, sessionID)
-	if err != nil {
-		return fmt.Errorf("清理聊天消息失败: %w", err)
-	}
-	return nil
-}
-
-func (s *SQLiteStorage) GetSessionMeta(sessionID string) (*models.SessionMeta, error) {
-	var meta models.SessionMeta
-
-	err := s.db.QueryRow(`
-		SELECT session_id, last_active
-		FROM sessions
-		WHERE session_id = ?
-	`, sessionID).Scan(&meta.SessionID, &meta.LastActive)
-
-	if err != nil {
-		return nil, fmt.Errorf("查询会话元数据失败: %w", err)
-	}
-
-	return &meta, nil
-}
-
-func (s *SQLiteStorage) UpdateSessionMeta(sessionID string, lastActive int64) error {
-	_, err := s.db.Exec(`
-		INSERT INTO sessions (session_id, last_active) VALUES (?, ?)
-		ON CONFLICT(session_id) DO UPDATE SET last_active = ?
-	`, sessionID, lastActive, lastActive)
-	if err != nil {
-		return fmt.Errorf("更新会话元数据失败: %w", err)
 	}
 	return nil
 }

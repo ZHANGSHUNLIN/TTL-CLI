@@ -353,38 +353,3 @@ func DeleteLogRecord(id int64) error {
 	}
 	return Stor.DeleteLogRecord(id)
 }
-
-func SaveChatMessage(sessionID string, message models.ChatMessage) error {
-	if Stor == nil {
-		return fmt.Errorf("storage not initialized")
-	}
-	return Stor.SaveChatMessage(sessionID, message)
-}
-
-func GetChatMessages(sessionID string) ([]models.ChatMessage, error) {
-	if Stor == nil {
-		return nil, fmt.Errorf("storage not initialized")
-	}
-	return Stor.GetChatMessages(sessionID)
-}
-
-func ClearChatMessages(sessionID string) error {
-	if Stor == nil {
-		return fmt.Errorf("storage not initialized")
-	}
-	return Stor.ClearChatMessages(sessionID)
-}
-
-func GetSessionMeta(sessionID string) (*models.SessionMeta, error) {
-	if Stor == nil {
-		return nil, fmt.Errorf("storage not initialized")
-	}
-	return Stor.GetSessionMeta(sessionID)
-}
-
-func UpdateSessionMeta(sessionID string, lastActive int64) error {
-	if Stor == nil {
-		return fmt.Errorf("storage not initialized")
-	}
-	return Stor.UpdateSessionMeta(sessionID, lastActive)
-}

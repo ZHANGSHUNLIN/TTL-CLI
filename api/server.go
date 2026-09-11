@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"ttl-cli/db"
-	ttlmcp "ttl-cli/mcp"
-
-	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
 func StartServer(port int, dataDir string) error {
@@ -29,16 +26,11 @@ func StartServer(port int, dataDir string) error {
 	mux.HandleFunc("/api/v1/audit/stats", AuditStatsHandler)
 	mux.HandleFunc("/api/v1/history", HistoryHandler)
 
-	mcpSrv := ttlmcp.NewTtlMCPServer()
-	streamableHTTP := mcpserver.NewStreamableHTTPServer(mcpSrv)
-	mux.Handle("/mcp", streamableHTTP)
-
 	handler := MultiTenantAuthMiddleware(userStore, tenantMgr, mux)
 
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Printf("ttl server started, listening on %s\n", addr)
 	fmt.Printf("  REST API: http://localhost:%d/api/v1/\n", port)
-	fmt.Printf("  MCP HTTP: http://localhost:%d/mcp\n", port)
 	fmt.Printf("  Data dir: %s\n", dataDir)
 	fmt.Printf("  User count: %d\n", len(users))
 

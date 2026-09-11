@@ -106,24 +106,10 @@
     },
     "config": {
       "short": "구성 표시",
-      "long": "데이터 파일 위치에 대한 정보를 표시합니다. AI 기능을 구성하려면 하위 명령 'config ai'를 사용하세요.",
+      "long": "데이터 파일 위치에 대한 정보를 표시합니다.",
       "error_get_path": "구성 경로 가져오기 실패: %w",
       "data_path_label": "데이터 파일 위치:",
-      "config_path_label": "구성 파일 위치:",
-      "ai_config_label": "AI 구성:"
-    },
-    "config_ai": {
-      "short": "AI 구성",
-      "long": "AI 매개변수(API 키, 모델 URL 등)를 대화형으로 구성합니다.",
-      "title": "=== AI 구성 ===",
-      "api_key_prompt": "API 키(필수): ",
-      "api_key_current": "API 키 [현재: %s]: ",
-      "api_key_empty": "API 키는 비워둘 수 없습니다",
-      "api_url_prompt": "API URL [%s]: ",
-      "model_prompt": "모델 이름 [%s]: ",
-      "timeout_prompt": "타임아웃(초) [%d]: ",
-      "error_save": "AI 구성 저장 실패: %w",
-      "success": "구성이 저장되었습니다!"
+      "config_path_label": "구성 파일 위치:"
     },
     "version": {
       "short": "버전 표시",
@@ -198,16 +184,9 @@
       "flag_type": "내보내기 유형: resources / audit / history / log",
       "flag_bom": "UTF-8 BOM 쓰기(Excel 한글 인코딩 문제 해결)"
     },
-    "ai": {
-      "use": "ai <자연어 입력>",
-      "short": "자연어로 데이터 관리",
-      "long": "자연어로 AI 어시스턴트와 상호작용합니다. 하나의 명령으로 열 개의 작업을.",
-      "not_configured": "먼저 AI를 구성하세요: 'ttl config ai' 실행",
-      "thinking": "생각 중..."
-    },
     "server": {
       "short": "HTTP 백엔드 시작 또는 사용자 관리",
-      "long": "멀티 테넌트 HTTP 서비스(REST API + MCP HTTP 엔드포인트)를 시작하거나 사용자 하위 명령으로 사용자를 관리합니다.",
+      "long": "멀티 테넌트 HTTP 서비스(REST API)를 시작하거나 사용자 하위 명령으로 사용자를 관리합니다.",
       "user": {
         "short": "사용자 관리",
         "long": "멀티 테넌트 사용자를 관리합니다. 생성, 목록, 비활성화, 활성화, 키 재설정, 삭제 등이 포함됩니다."
@@ -256,43 +235,6 @@
       "skipped": "건너뜀",
       "invalid_choice": "잘못된 선택: %s",
       "invalid_direction": "잘못된 동기화 방향: %s(지원: pull, push, auto)"
-    },
-    "mcp": {
-      "short": "로컬 MCP 서버 시작(stdio 전송)",
-      "long": "MCP 서버를 시작하고 stdin/stdout을 통해 AI 클라이언트와 통신합니다.",
-      "added_successfully": "추가되었습니다",
-      "key_already_exists": "키가 이미 존재합니다: ",
-      "failed_to_save": "리소스 저장 실패",
-      "failed_to_get": "리소스 가져오기 실패",
-      "no_resources": "리소스가 없습니다",
-      "all_resources": "모든 리소스:\n",
-      "not_found": "리소스를 찾을 수 없습니다: ",
-      "resource_not_found": "리소스를 찾을 수 없습니다",
-      "failed_to_update": "리소스 업데이트 실패",
-      "failed_to_save_resource": "리소스 저장 실패",
-      "failed_to_get_resources": "리소스 가져오기 실패",
-      "at_least_one_tag_required": "하나 이상의 태그가 필요합니다",
-      "tag_added_successfully": "태그가 추가되었습니다",
-      "tag_deleted_successfully": "태그가 삭제되었습니다",
-      "rename_successfully": "이름이 변경되었습니다",
-      "not_found_resource": "리소스를 찾을 수 없습니다",
-      "failed_to_delete_old": "이전 리소스 삭제 실패",
-      "failed_to_save_new": "새 리소스 저장 실패",
-      "resource_label": "리소스: ",
-      "tags_label": "태그: ",
-      "deleted_successfully": "삭제되었습니다",
-      "content_required": "로그 내용이 필요합니다",
-      "failed_to_save_log": "로그 저장 실패",
-      "log_recorded": "로그가 기록되었습니다: %s%s (%s)",
-      "no_log_records": "기간 %s ~ %s 동안 로그 레코드가 없습니다",
-      "log_deleted_successfully": "로그가 삭제되었습니다",
-      "id_required": "로그 ID는 비워둘 수 없습니다",
-      "failed_to_delete_log": "로그 삭제 실패",
-      "unsupported_export_type": "지원되지 않는 내보내기 유형: %s(지원: resources, audit, history, log)",
-      "failed_to_get_audit": "감사 레코드 가져오기 실패",
-      "failed_to_get_history": "기록 레코드 가져오기 실패",
-      "failed_to_get_log": "로그 레코드 가져오기 실패",
-      "total_records": "총 %d개 레코드"
     },
     "encrypt": {
       "short": "데이터 암호화 활성화",
@@ -421,29 +363,8 @@
       "config_not_exist": "구성 파일이 존재하지 않습니다: %s",
       "load_config": "구성 파일 불러오기 실패: %w",
       "parse_config": "구성 파일 구문 분석 실패: %w",
-      "parse_ai_config": "AI 구성 구문 분석 실패: %w",
       "save_default_config": "기본 구성 저장 실패: %w"
     }
-  },
-  "ai": {
-    "call_failed": "AI 호출 실패: %w",
-    "max_steps": "작업 완료(최대 추론 단계 도달)",
-    "truncated": "...(결과가 너무 길어서 잘림)",
-    "unknown_action": "알 수 없는 작업: %s",
-    "exec_failed": "실행 실패: %s",
-    "no_resources": "현재 저장된 리소스가 없습니다",
-    "not_found_keyword": "\"%s\"와 일치하는 리소스를 찾을 수 없습니다",
-    "open_failed": "열기 실패: %w",
-    "open_manually": "수동으로 여세요: %s",
-    "delete_confirm": "삭제하려고 합니다: %s\n다음으로 삭제를 확인하세요: ttl del %s",
-    "log_empty": "기간 %s ~ %s 동안 로그 레코드가 없습니다",
-    "log_id_invalid": "로그 ID 형식이 올바르지 않습니다. 숫자여야 합니다",
-    "log_deleted": "로그가 삭제되었습니다",
-    "export_resources": "%d개의 리소스를 내보낼 수 있습니다. `ttl export --type resources`를 사용하여 CSV로 내보내세요",
-    "export_audit": "%d개의 감사 레코드를 내보낼 수 있습니다. `ttl export --type audit`를 사용하여 CSV로 내보내세요",
-    "export_history": "%d개의 기록 레코드를 내보낼 수 있습니다. `ttl export --type history`를 사용하여 CSV로 내보내세요",
-    "export_log": "%d개의 작업 로그 레코드를 내보낼 수 있습니다. `ttl export --type log`를 사용하여 CSV로 내보내세요",
-    "export_unsupported": "지원되지 않는 내보내기 유형: %s. 지원되는 유형: resources, audit, history, log"
   },
   "sync": {
     "dry_run_delete_local": "[dry-run] 로컬 리소스 삭제: %s",

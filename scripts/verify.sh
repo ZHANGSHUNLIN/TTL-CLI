@@ -115,10 +115,6 @@ $BINARY --conf "$TEST_CONF" decrypt > /dev/null
 # 验证解密后数据仍可读取
 $BINARY --conf "$TEST_CONF" get test-resource-2 | grep -q "example2.com"
 
-echo "   - 测试 MCP server 启动..."
-# 测试 MCP server 能否正常初始化（timeout 2秒）
-timeout 2 $BINARY --conf "$TEST_CONF" mcp < /dev/null 2>&1 | head -1 > /dev/null || true
-
 # 工作空间测试
 echo "   - 测试 workspace list (empty)..."
 $BINARY --conf "$TEST_CONF" workspace list | grep -q "暂无工作空间"

@@ -64,17 +64,6 @@ type TagStat struct {
 	ResourceKeys []string `json:"resourceKeys"`
 }
 
-type ChatMessage struct {
-	Role      string `json:"role"`      // "system" | "user" | "assistant"
-	Content   string `json:"content"`   // 消息内容
-	Timestamp int64  `json:"timestamp"` // Unix 时间戳
-}
-
-type SessionMeta struct {
-	SessionID  string `json:"session_id"`  // 会话 ID
-	LastActive int64  `json:"last_active"` // 最后活跃时间（Unix 时间戳）
-}
-
 type SortOrder string
 
 const (
@@ -86,21 +75,8 @@ type TtlIni struct {
 	StorageType string                     `ini:"storage_type"`
 	DbPath      string                     `ini:"db_path"`
 	Workspace   string                     `ini:"workspace"`
-	AI          AIConfig                   `ini:"ai"`
 	BoltDB      BoltDBConfig               `ini:"bbolt"`
 	Workspaces  map[string]WorkspaceConfig `ini:"-"`
-}
-
-type AIConfig struct {
-	APIKey  string `ini:"api_key"`
-	BaseURL string `ini:"base_url"`
-	Model   string `ini:"model"`
-	Timeout int    `ini:"timeout"`
-
-	ContextEnabled   bool `ini:"context_enabled"`
-	ContextIdleTTL   int  `ini:"context_idle_ttl"`
-	ContextMaxRounds int  `ini:"context_max_rounds"`
-	ContextMaxTokens int  `ini:"context_max_tokens"`
 }
 
 type BoltDBConfig struct {

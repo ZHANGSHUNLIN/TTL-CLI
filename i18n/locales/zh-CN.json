@@ -106,24 +106,10 @@
     },
     "config": {
       "short": "显示配置信息",
-      "long": "显示数据文件的位置等信息。支持子命令 config ai 配置 AI 功能。",
+      "long": "显示数据文件的位置等信息",
       "error_get_path": "获取配置路径失败: %w",
       "data_path_label": "数据文件的位置：",
-      "config_path_label": "配置文件的位置：",
-      "ai_config_label": "AI 配置："
-    },
-    "config_ai": {
-      "short": "配置 AI 功能",
-      "long": "交互式配置 AI 相关参数（API Key、模型地址等）。",
-      "title": "=== 配置 AI 功能 ===",
-      "api_key_prompt": "API Key (必填): ",
-      "api_key_current": "API Key [当前: %s]: ",
-      "api_key_empty": "API Key 不能为空",
-      "api_url_prompt": "API 地址 [%s]: ",
-      "model_prompt": "模型名称 [%s]: ",
-      "timeout_prompt": "超时时间(秒) [%d]: ",
-      "error_save": "保存 AI 配置失败: %w",
-      "success": "配置成功！"
+      "config_path_label": "配置文件的位置："
     },
     "version": {
       "short": "显示版本信息",
@@ -198,16 +184,9 @@
       "flag_type": "导出类型：resources / audit / history / log",
       "flag_bom": "写入 UTF-8 BOM（解决 Excel 中文乱码）"
     },
-    "ai": {
-      "use": "ai <自然语言输入>",
-      "short": "用自然语言管理你的数据",
-      "long": "通过自然语言与 AI 助手交互，一个命令替代十个。",
-      "not_configured": "请先配置 AI：运行 ttl config ai",
-      "thinking": "思考中..."
-    },
     "server": {
       "short": "启动 HTTP 后端服务或管理用户",
-      "long": "启动多租户 HTTP 服务（REST API + MCP HTTP 端点），或通过 user 子命令管理用户。",
+      "long": "启动多租户 HTTP 服务（REST API），或通过 user 子命令管理用户。",
       "user": {
         "short": "用户管理",
         "long": "管理多租户用户，包括创建、列出、禁用、启用、重置 Key、删除等操作。"
@@ -256,43 +235,6 @@
       "skipped": "已跳过",
       "invalid_choice": "无效的选择: %s",
       "invalid_direction": "无效的同步方向: %s（支持: pull, push, auto）"
-    },
-    "mcp": {
-      "short": "启动本地 MCP Server（stdio 传输）",
-      "long": "启动 MCP Server，通过 stdin/stdout 与 AI 客户端通信。",
-      "added_successfully": "添加成功",
-      "key_already_exists": "key 已经存在：",
-      "failed_to_save": "保存资源失败",
-      "failed_to_get": "获取资源失败",
-      "no_resources": "没有资源",
-      "all_resources": "所有资源：\n",
-      "not_found": "未找到与 \"%s\" 相关的资源",
-      "resource_not_found": "未找到该资源",
-      "failed_to_update": "更新资源失败",
-      "failed_to_save_resource": "保存资源失败",
-      "failed_to_get_resources": "Failed to get resources",
-      "at_least_one_tag_required": "至少需要一个标签",
-      "tag_added_successfully": "标签添加成功",
-      "tag_deleted_successfully": "标签删除成功",
-      "rename_successfully": "重命名成功",
-      "not_found_resource": "未找到该资源",
-      "failed_to_delete_old": "删除旧资源失败",
-      "failed_to_save_new": "保存新资源失败",
-      "resource_label": "资源：",
-      "tags_label": "标签：",
-      "deleted_successfully": "删除成功",
-      "content_required": "记录日志需要提供 content（日志正文）",
-      "failed_to_save_log": "保存日志失败",
-      "log_recorded": "日志已记录：%s%s（%s）",
-      "no_log_records": "在 %s ~ %s 期间暂无日志记录",
-      "log_deleted_successfully": "日志删除成功",
-      "id_required": "日志 ID 不能为空",
-      "failed_to_delete_log": "删除日志失败",
-      "unsupported_export_type": "不支持的导出类型：%s（支持的类型：resources, audit, history, log）",
-      "failed_to_get_audit": "获取审计数据失败",
-      "failed_to_get_history": "获取历史数据失败",
-      "failed_to_get_log": "获取日志数据失败",
-      "total_records": "Total %d records"
     },
     "encrypt": {
       "short": "启用数据加密",
@@ -456,29 +398,8 @@
       "config_not_exist": "配置文件不存在: %s",
       "load_config": "加载配置文件失败: %w",
       "parse_config": "解析配置文件失败: %w",
-      "parse_ai_config": "解析AI配置失败: %w",
       "save_default_config": "保存默认配置失败: %w"
     }
-  },
-  "ai": {
-    "call_failed": "AI 调用失败: %w",
-    "max_steps": "操作已完成（达到最大推理轮数）",
-    "truncated": "...(结果过长已截断)",
-    "unknown_action": "未知操作: %s",
-    "exec_failed": "执行失败: %s",
-    "no_resources": "当前没有存储任何资源",
-    "not_found_keyword": "未找到与 \"%s\" 相关的资源",
-    "open_failed": "打开失败: %w",
-    "open_manually": "请手动打开：%s",
-    "delete_confirm": "即将删除：%s\n请使用 ttl del %s 确认删除",
-    "log_empty": "在 %s ~ %s 期间暂无日志记录",
-    "log_id_invalid": "日志 ID 格式不正确，应为数字",
-    "log_deleted": "日志删除成功",
-    "export_resources": "共有 %d 条资源可导出。请使用 `ttl export --type resources` 导出为 CSV 文件",
-    "export_audit": "共有 %d 条审计记录可导出。请使用 `ttl export --type audit` 导出为 CSV 文件",
-    "export_history": "共有 %d 条历史记录可导出。请使用 `ttl export --type history` 导出为 CSV 文件",
-    "export_log": "共有 %d 条工作日志可导出。请使用 `ttl export --type log` 导出为 CSV 文件",
-    "export_unsupported": "不支持的导出类型：%s。支持的类型：resources, audit, history, log"
   },
   "sync": {
     "dry_run_delete_local": "[dry-run] 删除本地资源: %s",

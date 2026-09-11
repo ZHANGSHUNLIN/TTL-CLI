@@ -64,19 +64,6 @@ func loadConfFile(path string) (models.TtlIni, error) {
 		ttlIni.StorageType = "sqlite"
 	}
 
-	if err := cfg.Section("ai").MapTo(&ttlIni.AI); err != nil {
-		return models.TtlIni{}, fmt.Errorf("failed to parse AI config: %w", err)
-	}
-	if ttlIni.AI.BaseURL == "" {
-		ttlIni.AI.BaseURL = "https://api.openai.com"
-	}
-	if ttlIni.AI.Model == "" {
-		ttlIni.AI.Model = "gpt-4o-mini"
-	}
-	if ttlIni.AI.Timeout == 0 {
-		ttlIni.AI.Timeout = 30
-	}
-
 	if err := cfg.Section("bbolt").MapTo(&ttlIni.BoltDB); err != nil {
 		return models.TtlIni{}, fmt.Errorf("failed to parse bbolt config: %w", err)
 	}
@@ -103,48 +90,6 @@ func loadConfFile(path string) (models.TtlIni, error) {
 	}
 
 	return ttlIni, nil
-}
-
-func LoadAIConfig(confFile string) (models.AIConfig, error) {
-	var ttlConf models.TtlIni
-	var err error
-	if confFile != "" {
-		ttlConf, err = GetTtlConfFromFile(confFile)
-	} else {
-		ttlConf, err = GetTtlConf()
-	}
-	if err != nil {
-		return models.AIConfig{}, err
-	}
-	return ttlConf.AI, nil
-}
-
-func SaveAIConfig(confFile string, aiConf models.AIConfig) error {
-	path := confFile
-	if path == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user directory: %w", err)
-		}
-		path = filepath.Join(homeDir, ".ttl", "ttl.ini")
-	}
-
-	cfg, err := ini.Load(path)
-	if err != nil {
-		cfg = ini.Empty()
-	}
-
-	sec := cfg.Section("ai")
-	sec.Key("api_key").SetValue(aiConf.APIKey)
-	sec.Key("base_url").SetValue(aiConf.BaseURL)
-	sec.Key("model").SetValue(aiConf.Model)
-	sec.Key("timeout").SetValue(fmt.Sprintf("%d", aiConf.Timeout))
-	sec.Key("context_enabled").SetValue(fmt.Sprintf("%v", aiConf.ContextEnabled))
-	sec.Key("context_idle_ttl").SetValue(fmt.Sprintf("%d", aiConf.ContextIdleTTL))
-	sec.Key("context_max_rounds").SetValue(fmt.Sprintf("%d", aiConf.ContextMaxRounds))
-	sec.Key("context_max_tokens").SetValue(fmt.Sprintf("%d", aiConf.ContextMaxTokens))
-
-	return cfg.SaveTo(path)
 }
 
 func GetDefaultConfPath() (string, error) {

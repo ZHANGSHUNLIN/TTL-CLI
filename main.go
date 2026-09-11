@@ -5,19 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 	"ttl-cli/api"
 	"ttl-cli/command"
 	"ttl-cli/conf"
 	"ttl-cli/db"
 	"ttl-cli/i18n"
-	ttlmcp "ttl-cli/mcp"
 	ttlsync "ttl-cli/sync"
 
-	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 )
 
@@ -65,47 +61,11 @@ func init() {
 	rootCmd.AddCommand(command.HistoryCmd)
 	rootCmd.AddCommand(command.ExportCmd)
 	rootCmd.AddCommand(command.ImportCmd)
-	rootCmd.AddCommand(command.AICmd)
-	rootCmd.AddCommand(command.AIContextCmd)
 	rootCmd.AddCommand(command.LogCmd)
-	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(command.WorkspaceCmd)
 	rootCmd.AddCommand(command.WsCmd)
-}
-
-var mcpCmd = &cobra.Command{
-	Use:   "mcp",
-	Short: i18n.T("command.mcp.short"),
-	Long:  i18n.T("command.mcp.long"),
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		s := ttlmcp.NewTtlMCPServer()
-		defer db.CloseDB()
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			<-sigCh
-			cancel()
-		}()
-
-		errCh := make(chan error, 1)
-		go func() {
-			errCh <- mcpserver.ServeStdio(s)
-		}()
-
-		select {
-		case err := <-errCh:
-			return err
-		case <-ctx.Done():
-			return nil
-		}
-	},
 }
 
 var serverPort int
@@ -406,10 +366,6 @@ func main() {
 		ctx := context.WithValue(cmd.Context(), "debug", debug)
 		ctx = context.WithValue(ctx, "confFile", confFile)
 
-		aiConf, err := conf.LoadAIConfig(confFile)
-		if err == nil {
-			ctx = context.WithValue(ctx, "ai_config", aiConf)
-		}
 		if !skipDBInit {
 			actualStorageType := storageType
 			if storageType == "sqlite" && cmd.Flags().Changed("storage") == false {
@@ -432,7 +388,7 @@ func main() {
 
 			replaceSpecialValuesFromHistory(args)
 
-			if !cmd.HasSubCommands() && cmd.Name() != "history" && cmd.Name() != "audit" && cmd.Name() != "export" && cmd.Name() != "mcp" && cmd.Name() != "server" && cmd.Name() != "sync" && cmd.Name() != "log" && cmd.Name() != "tags" {
+			if !cmd.HasSubCommands() && cmd.Name() != "history" && cmd.Name() != "audit" && cmd.Name() != "export" && cmd.Name() != "server" && cmd.Name() != "sync" && cmd.Name() != "log" && cmd.Name() != "tags" {
 				resourceKey := ""
 				if len(args) > 0 {
 					resourceKey = args[0]

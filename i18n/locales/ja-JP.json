@@ -106,24 +106,10 @@
     },
     "config": {
       "short": "設定を表示",
-      "long": "データファイルの場所に関する情報を表示します。AI機能の設定にはサブコマンド 'config ai' を使用してください。",
+      "long": "データファイルの場所に関する情報を表示します",
       "error_get_path": "設定パスの取得に失敗しました: %w",
       "data_path_label": "データファイルの場所:",
-      "config_path_label": "設定ファイルの場所:",
-      "ai_config_label": "AI設定:"
-    },
-    "config_ai": {
-      "short": "AIを設定",
-      "long": "AIパラメータ（APIキー、モデルURLなど）を対話的に設定します。",
-      "title": "=== AI設定 ===",
-      "api_key_prompt": "APIキー（必須）: ",
-      "api_key_current": "APIキー [現在: %s]: ",
-      "api_key_empty": "APIキーを空にすることはできません",
-      "api_url_prompt": "API URL [%s]: ",
-      "model_prompt": "モデル名 [%s]: ",
-      "timeout_prompt": "タイムアウト（秒）[%d]: ",
-      "error_save": "AI設定の保存に失敗しました: %w",
-      "success": "設定を保存しました！"
+      "config_path_label": "設定ファイルの場所:"
     },
     "version": {
       "short": "バージョンを表示",
@@ -198,16 +184,9 @@
       "flag_type": "エクスポートタイプ: resources / audit / history / log",
       "flag_bom": "UTF-8 BOMを書き込む（Excelの文字化け問題を修正）"
     },
-    "ai": {
-      "use": "ai <自然言語入力>",
-      "short": "自然言語でデータを管理",
-      "long": "自然言語でAIアシスタントと対話します。1つのコマンドで10つの操作を。",
-      "not_configured": "まずAIを設定してください: 'ttl config ai' を実行",
-      "thinking": "考えています..."
-    },
     "server": {
       "short": "HTTPバックエンドを開始またはユーザーを管理",
-      "long": "マルチテナントHTTPサービス（REST API + MCP HTTPエンドポイント）を開始するか、ユーザーサブコマンドでユーザーを管理します。",
+      "long": "マルチテナントHTTPサービス（REST API）を開始するか、ユーザーサブコマンドでユーザーを管理します。",
       "user": {
         "short": "ユーザー管理",
         "long": "マルチテナントユーザーを管理します。作成、一覧表示、無効化、有効化、キーのリセット、削除などが含まれます。"
@@ -256,43 +235,6 @@
       "skipped": "スキップしました",
       "invalid_choice": "無効な選択: %s",
       "invalid_direction": "無効な同期方向: %s（サポート: pull, push, auto）"
-    },
-    "mcp": {
-      "short": "ローカルMCPサーバーを開始（stdioトランスポート）",
-      "long": "MCPサーバーを開始し、stdin/stdoutを介してAIクライアントと通信します。",
-      "added_successfully": "追加に成功しました",
-      "key_already_exists": "キーは既に存在します: ",
-      "failed_to_save": "リソースの保存に失敗しました",
-      "failed_to_get": "リソースの取得に失敗しました",
-      "no_resources": "リソースがありません",
-      "all_resources": "すべてのリソース:\n",
-      "not_found": "リソースが見つかりません: ",
-      "resource_not_found": "リソースが見つかりません",
-      "failed_to_update": "リソースの更新に失敗しました",
-      "failed_to_save_resource": "リソースの保存に失敗しました",
-      "failed_to_get_resources": "リソースの取得に失敗しました",
-      "at_least_one_tag_required": "少なくとも1つのタグが必要です",
-      "tag_added_successfully": "タグの追加に成功しました",
-      "tag_deleted_successfully": "タグの削除に成功しました",
-      "rename_successfully": "名前の変更に成功しました",
-      "not_found_resource": "リソースが見つかりません",
-      "failed_to_delete_old": "古いリソースの削除に失敗しました",
-      "failed_to_save_new": "新しいリソースの保存に失敗しました",
-      "resource_label": "リソース: ",
-      "tags_label": "タグ: ",
-      "deleted_successfully": "削除に成功しました",
-      "content_required": "ログ内容は必須です",
-      "failed_to_save_log": "ログの保存に失敗しました",
-      "log_recorded": "ログを記録しました: %s%s (%s)",
-      "no_log_records": "期間 %s ~ %s 中にログレコードがありません",
-      "log_deleted_successfully": "ログの削除に成功しました",
-      "id_required": "ログIDを空にすることはできません",
-      "failed_to_delete_log": "ログの削除に失敗しました",
-      "unsupported_export_type": "サポートされていないエクスポートタイプ: %s（サポート: resources, audit, history, log）",
-      "failed_to_get_audit": "監査レコードの取得に失敗しました",
-      "failed_to_get_history": "履歴レコードの取得に失敗しました",
-      "failed_to_get_log": "ログレコードの取得に失敗しました",
-      "total_records": "合計%dレコード"
     },
     "encrypt": {
       "short": "データ暗号化を有効化",
@@ -421,29 +363,8 @@
       "config_not_exist": "設定ファイルが存在しません: %s",
       "load_config": "設定ファイルの読み込みに失敗しました: %w",
       "parse_config": "設定ファイルの解析に失敗しました: %w",
-      "parse_ai_config": "AI設定の解析に失敗しました: %w",
       "save_default_config": "デフォルト設定の保存に失敗しました: %w"
     }
-  },
-  "ai": {
-    "call_failed": "AI呼び出しに失敗しました: %w",
-    "max_steps": "操作が完了しました（最大推論ステップに到達）",
-    "truncated": "...（結果が長すぎます、切り詰められました）",
-    "unknown_action": "不明なアクション: %s",
-    "exec_failed": "実行に失敗しました: %s",
-    "no_resources": "現在保存されているリソースがありません",
-    "not_found_keyword": "\"%s\"に一致するリソースが見つかりません",
-    "open_failed": "オープンに失敗しました: %w",
-    "open_manually": "手動で開いてください: %s",
-    "delete_confirm": "次を削除しようとしています: %s\n次で削除を確認してください: ttl del %s",
-    "log_empty": "期間 %s ~ %s 中にログレコードがありません",
-    "log_id_invalid": "ログIDの形式が正しくありません。数字である必要があります",
-    "log_deleted": "ログの削除に成功しました",
-    "export_resources": "%d個のリソースがエクスポート可能です。`ttl export --type resources` を使用してCSVとしてエクスポートしてください",
-    "export_audit": "%d個の監査レコードがエクスポート可能です。`ttl export --type audit` を使用してCSVとしてエクスポートしてください",
-    "export_history": "%d個の履歴レコードがエクスポート可能です。`ttl export --type history` を使用してCSVとしてエクスポートしてください",
-    "export_log": "%d個の作業ログレコードがエクスポート可能です。`ttl export --type log` を使用してCSVとしてエクスポートしてください",
-    "export_unsupported": "サポートされていないエクスポートタイプ: %s。サポートされるタイプ: resources, audit, history, log"
   },
   "sync": {
     "dry_run_delete_local": "[dry-run] ローカルリソースを削除: %s",
