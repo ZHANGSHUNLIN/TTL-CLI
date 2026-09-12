@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 	"ttl-cli/models"
 
@@ -52,9 +51,9 @@ var ImportCmd = &cobra.Command{
 		var added, skipped, failed int
 		switch importFormat {
 		case "csv":
-			added, skipped, failed, err = importCSV(input, importType, mergeMode)
+			added, skipped, failed, err = importCSV(cmd, input, importType, mergeMode)
 		case "json":
-			added, skipped, failed, err = importJSON(input, importType, mergeMode)
+			added, skipped, failed, err = importJSON(cmd, input, importType, mergeMode)
 		default:
 			return fmt.Errorf("不支持的格式: %s (支持: csv, json)", importFormat)
 		}
@@ -71,7 +70,7 @@ var ImportCmd = &cobra.Command{
 	},
 }
 
-func importCSV(input *os.File, importType string, mergeMode bool) (added, skipped, failed int, err error) {
+func importCSV(cmd *cobra.Command, input *os.File, importType string, mergeMode bool) (added, skipped, failed int, err error) {
 	r := csv.NewReader(input)
 	records, err := r.ReadAll()
 	if err != nil {
@@ -86,19 +85,19 @@ func importCSV(input *os.File, importType string, mergeMode bool) (added, skippe
 
 	switch importType {
 	case "resources":
-		return importResourcesFromCSV(headers, records[1:], mergeMode)
+		return importResourcesFromCSV(cmd, headers, records[1:], mergeMode)
 	case "audit":
-		return importAuditFromCSV(headers, records[1:], mergeMode)
+		return importAuditFromCSV(cmd, headers, records[1:], mergeMode)
 	case "history":
-		return importHistoryFromCSV(headers, records[1:], mergeMode)
+		return importHistoryFromCSV(cmd, headers, records[1:], mergeMode)
 	case "log":
-		return importLogFromCSV(headers, records[1:], mergeMode)
+		return importLogFromCSV(cmd, headers, records[1:], mergeMode)
 	default:
 		return 0, 0, 0, fmt.Errorf("不支持的导入类型: %s", importType)
 	}
 }
 
-func importResourcesFromCSV(headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
+func importResourcesFromCSV(cmd *cobra.Command, headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
 	keyIdx := -1
 	valueIdx := -1
 	tagsIdx := -1
@@ -120,7 +119,7 @@ func importResourcesFromCSV(headers []string, records [][]string, mergeMode bool
 
 	existingResources := make(map[string]bool)
 	if mergeMode {
-		allResources, e := db.GetAllResources()
+		allResources, e := clientService(cmd).GetAllResources()
 		if e != nil {
 			return 0, 0, 0, fmt.Errorf("获取现有资源失败: %w", e)
 		}
@@ -158,7 +157,7 @@ func importResourcesFromCSV(headers []string, records [][]string, mergeMode bool
 		}
 
 		vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
-		if err := db.SaveResource(vjk, models.ValJson{Val: value, Tag: tags}); err != nil {
+		if err := clientService(cmd).SaveResource(vjk, models.ValJson{Val: value, Tag: tags}); err != nil {
 			failed++
 			continue
 		}
@@ -169,7 +168,7 @@ func importResourcesFromCSV(headers []string, records [][]string, mergeMode bool
 	return added, skipped, failed, nil
 }
 
-func importAuditFromCSV(headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
+func importAuditFromCSV(cmd *cobra.Command, headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
 	for _, row := range records {
 		if len(row) < 4 {
 			failed++
@@ -194,7 +193,7 @@ func importAuditFromCSV(headers []string, records [][]string, mergeMode bool) (a
 			Count:       count,
 		}
 
-		if err := db.Stor.SaveAuditRecord(record); err != nil {
+		if err := clientService(cmd).SaveAuditRecord(record); err != nil {
 			failed++
 			continue
 		}
@@ -204,7 +203,7 @@ func importAuditFromCSV(headers []string, records [][]string, mergeMode bool) (a
 	return added, skipped, failed, nil
 }
 
-func importHistoryFromCSV(headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
+func importHistoryFromCSV(cmd *cobra.Command, headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
 	for _, row := range records {
 		if len(row) < 5 {
 			failed++
@@ -226,7 +225,7 @@ func importHistoryFromCSV(headers []string, records [][]string, mergeMode bool) 
 			Command:     strings.TrimSpace(row[4]),
 		}
 
-		if err := db.Stor.SaveHistoryRecord(record); err != nil {
+		if err := clientService(cmd).SaveHistoryRecord(record); err != nil {
 			failed++
 			continue
 		}
@@ -236,7 +235,7 @@ func importHistoryFromCSV(headers []string, records [][]string, mergeMode bool) 
 	return added, skipped, failed, nil
 }
 
-func importLogFromCSV(headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
+func importLogFromCSV(cmd *cobra.Command, headers []string, records [][]string, mergeMode bool) (added, skipped, failed int, err error) {
 	for _, row := range records {
 		if len(row) < 5 {
 			failed++
@@ -265,7 +264,7 @@ func importLogFromCSV(headers []string, records [][]string, mergeMode bool) (add
 			Date:      strings.TrimSpace(row[4]),
 		}
 
-		if err := db.Stor.SaveLogRecord(record); err != nil {
+		if err := clientService(cmd).SaveLogRecord(record); err != nil {
 			failed++
 			continue
 		}
@@ -275,7 +274,7 @@ func importLogFromCSV(headers []string, records [][]string, mergeMode bool) (add
 	return added, skipped, failed, nil
 }
 
-func importJSON(input *os.File, importType string, mergeMode bool) (added, skipped, failed int, err error) {
+func importJSON(cmd *cobra.Command, input *os.File, importType string, mergeMode bool) (added, skipped, failed int, err error) {
 	var data struct {
 		Type       string `json:"type"`
 		ExportedAt string `json:"exported_at"`
@@ -289,7 +288,7 @@ func importJSON(input *os.File, importType string, mergeMode bool) (added, skipp
 
 	existingResources := make(map[string]bool)
 	if mergeMode && importType == "resources" {
-		allResources, e := db.GetAllResources()
+		allResources, e := clientService(cmd).GetAllResources()
 		if e != nil {
 			return 0, 0, 0, fmt.Errorf("获取现有资源失败: %w", e)
 		}
@@ -331,7 +330,7 @@ func importJSON(input *os.File, importType string, mergeMode bool) (added, skipp
 			}
 
 			vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
-			if err := db.SaveResource(vjk, models.ValJson{Val: value, Tag: tags}); err != nil {
+			if err := clientService(cmd).SaveResource(vjk, models.ValJson{Val: value, Tag: tags}); err != nil {
 				failed++
 				continue
 			}
@@ -358,7 +357,7 @@ func importJSON(input *os.File, importType string, mergeMode bool) (added, skipp
 				Count:       count,
 			}
 
-			if err := db.Stor.SaveAuditRecord(record); err != nil {
+			if err := clientService(cmd).SaveAuditRecord(record); err != nil {
 				failed++
 				continue
 			}
@@ -381,7 +380,7 @@ func importJSON(input *os.File, importType string, mergeMode bool) (added, skipp
 				Command:     itemMap["command"].(string),
 			}
 
-			if err := db.Stor.SaveHistoryRecord(record); err != nil {
+			if err := clientService(cmd).SaveHistoryRecord(record); err != nil {
 				failed++
 				continue
 			}
@@ -411,7 +410,7 @@ func importJSON(input *os.File, importType string, mergeMode bool) (added, skipp
 				Date:      itemMap["date"].(string),
 			}
 
-			if err := db.Stor.SaveLogRecord(record); err != nil {
+			if err := clientService(cmd).SaveLogRecord(record); err != nil {
 				failed++
 				continue
 			}

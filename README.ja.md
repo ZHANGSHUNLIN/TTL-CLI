@@ -68,7 +68,7 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZHANGSHUNLIN/TTL-CLI/main/install.sh)"
 
 # またはソースからビルド
-go build -o ttl .
+go build -o ttl ./cmd/ttl
 sudo mv ttl /usr/local/bin/
 ```
 
@@ -140,10 +140,10 @@ ttl log list --range month      # 今月
 
 ```bash
 # ユーザーを作成
-ttl server user add alice
+ttl-server user add --id alice --name Alice
 
 # マルチテナントサーバーを開始
-ttl server start --port 8080
+ttl-server serve --port 8080
 ```
 
 ### データを同期

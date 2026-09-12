@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"ttl-cli/conf"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 	storagesqlite "ttl-cli/internal/storage/sqlite"
 
@@ -78,7 +77,7 @@ var WorkspaceSwitchCmd = &cobra.Command{
 			return err
 		}
 
-		if err := db.CloseDB(); err != nil {
+		if err := clientService(cmd).Close(); err != nil {
 			return fmt.Errorf("failed to close current database: %w", err)
 		}
 
@@ -230,7 +229,7 @@ var WsCmd = &cobra.Command{
 			return err
 		}
 
-		if err := db.CloseDB(); err != nil {
+		if err := clientService(cmd).Close(); err != nil {
 			return fmt.Errorf("failed to close current database: %w", err)
 		}
 

@@ -139,10 +139,10 @@ ttl log list --range month      # This month
 
 ```bash
 # Create a user
-ttl server user add alice
+ttl-server user add --id alice --name Alice
 
 # Start multi-tenant server
-ttl server start --port 8080
+ttl-server serve --port 8080
 ```
 
 ### Sync Your Data
@@ -227,13 +227,11 @@ locations, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
 The local client and backend service can now be built independently:
 
 ```bash
-go build -o ttl .
 go build -o ttl ./cmd/ttl
 go build -o ttl-server ./cmd/ttl-server
 ```
 
-`ttl server ...` remains available during migration. New deployments can use
-`ttl-server serve ...` and `ttl-server user ...` directly.
+`ttl-server` is the standalone server entry point.
 
 ---
 

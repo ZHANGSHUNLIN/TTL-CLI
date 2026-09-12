@@ -68,7 +68,7 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZHANGSHUNLIN/TTL-CLI/main/install.sh)"
 
 # 或从源码构建
-go build -o ttl .
+go build -o ttl ./cmd/ttl
 sudo mv ttl /usr/local/bin/
 ```
 
@@ -138,10 +138,10 @@ ttl log list --range month      # 本月
 
 ```bash
 # 创建用户
-ttl server user add alice
+ttl-server user add --id alice --name Alice
 
 # 启动多租户服务器
-ttl server start --port 8080
+ttl-server serve --port 8080
 ```
 
 ### 同步数据

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"ttl-cli/crypto"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 
 	"github.com/spf13/cobra"
@@ -19,13 +18,13 @@ var EncryptCmd = &cobra.Command{
 		migrate, _ := cmd.Flags().GetBool("migrate")
 		force, _ := cmd.Flags().GetBool("force")
 
-		if ls, ok := db.Stor.(*db.LocalStorage); ok && ls.IsEncryptionEnabled() {
+		if ls, ok := clientService(cmd).LocalStorage(); ok && ls.IsEncryptionEnabled() {
 			Println(i18n.T("command.encrypt.enabled"))
 			return nil
 		}
 
 		if !migrate && !force {
-			resources, err := db.GetAllResources()
+			resources, err := clientService(cmd).GetAllResources()
 			if err == nil && len(resources) > 0 {
 				Println(i18n.T("command.encrypt.migrate_prompt"))
 				reader := bufio.NewReader(os.Stdin)
@@ -38,7 +37,7 @@ var EncryptCmd = &cobra.Command{
 			}
 		}
 
-		if ls, ok := db.Stor.(*db.LocalStorage); ok {
+		if ls, ok := clientService(cmd).LocalStorage(); ok {
 			if migrate || force {
 				if err := ls.EnableEncryption(); err != nil {
 					return fmt.Errorf("启用加密失败: %w", err)
@@ -66,7 +65,7 @@ var DecryptCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keepKey, _ := cmd.Flags().GetBool("keep-key")
 
-		ls, ok := db.Stor.(*db.LocalStorage)
+		ls, ok := clientService(cmd).LocalStorage()
 		if !ok {
 			return fmt.Errorf("解密功能仅支持本地存储模式")
 		}

@@ -18,8 +18,10 @@ func TestClientAndServerDoNotImportEachOther(t *testing.T) {
 	for _, pkg := range packages {
 		for _, imported := range pkg.Imports {
 			switch {
-			case pkg.ImportPath != "ttl-cli/internal/client/cli" && strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/client/") && strings.HasPrefix(imported, "ttl-cli/internal/server/"):
+			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/client/") && strings.HasPrefix(imported, "ttl-cli/internal/server/"):
 				t.Errorf("client package %s imports server package %s", pkg.ImportPath, imported)
+			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/client/") && imported == "ttl-cli/db":
+				t.Errorf("client package %s imports legacy db facade", pkg.ImportPath)
 			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/server/") && strings.HasPrefix(imported, "ttl-cli/internal/client/"):
 				t.Errorf("server package %s imports client package %s", pkg.ImportPath, imported)
 			}

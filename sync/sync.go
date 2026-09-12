@@ -2,7 +2,7 @@ package sync
 
 import (
 	"fmt"
-	"ttl-cli/db"
+	corestorage "ttl-cli/internal/core/storage"
 	"ttl-cli/models"
 )
 
@@ -94,7 +94,7 @@ func valJsonEqual(a, b models.ValJson) bool {
 	return true
 }
 
-func ExecutePull(diff DiffResult, localStorage, remoteStorage db.Storage, dryRun bool) error {
+func ExecutePull(diff DiffResult, localStorage, remoteStorage corestorage.Storage, dryRun bool) error {
 	if diff.InSync {
 		fmt.Println("Data is already in sync, no action needed")
 		return nil
@@ -139,7 +139,7 @@ func ExecutePull(diff DiffResult, localStorage, remoteStorage db.Storage, dryRun
 	return nil
 }
 
-func ExecutePush(diff DiffResult, localStorage, remoteStorage db.Storage, dryRun bool) error {
+func ExecutePush(diff DiffResult, localStorage, remoteStorage corestorage.Storage, dryRun bool) error {
 	if diff.InSync {
 		fmt.Println("Data is already in sync, no action needed")
 		return nil

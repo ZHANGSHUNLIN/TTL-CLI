@@ -31,7 +31,7 @@ mkdir -p "$TEST_HOME"
 
 if [[ -z "$BINARY" ]]; then
     BINARY="$TEST_DIR/ttl"
-    go build -o "$BINARY" .
+    go build -o "$BINARY" ./cmd/ttl
 elif [[ ! -x "$BINARY" ]]; then
     echo "回归测试二进制不存在或不可执行: $BINARY" >&2
     exit 1
@@ -123,8 +123,13 @@ run_cli add "tag-test-1" "value1" -t work > /dev/null
 run_cli add "tag-test-2" "value2" -t work > /dev/null
 assert_cli_contains "tag-test-1" tags work
 
-echo "   - legacy server command compatibility"
-assert_cli_contains "user" server --help
+echo "   - standalone server entry"
+SERVER_BINARY="$TEST_DIR/ttl-server"
+go build -o "$SERVER_BINARY" ./cmd/ttl-server
+if ! "$SERVER_BINARY" --help | grep -Fq "user"; then
+    echo "ttl-server help 未包含 user 命令" >&2
+    exit 1
+fi
 
 echo "   - encrypt/key verify/decrypt"
 run_cli encrypt --migrate > /dev/null

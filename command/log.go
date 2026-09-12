@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 	"ttl-cli/models"
 
@@ -22,7 +21,7 @@ var LogCmd = &cobra.Command{
 		listMode, _ := cmd.Flags().GetBool("list")
 
 		if deleteID != "" {
-			return runLogDelete(deleteID)
+			return runLogDelete(cmd, deleteID)
 		}
 		if listMode {
 			return runLogList(cmd)
@@ -47,7 +46,7 @@ func runLogAdd(cmd *cobra.Command, args []string) error {
 		Date:      now.Format("2006-01-02"),
 	}
 
-	if err := db.SaveLogRecord(record); err != nil {
+	if err := clientService(cmd).SaveLogRecord(record); err != nil {
 		return fmt.Errorf(i18n.T("command.log.error_save"), err)
 	}
 
@@ -90,7 +89,7 @@ func runLogList(cmd *cobra.Command) error {
 		endDate = today
 	}
 
-	records, err := db.GetLogRecords(startDate, endDate)
+	records, err := clientService(cmd).GetLogRecords(startDate, endDate)
 	if err != nil {
 		return fmt.Errorf(i18n.T("command.log.error_query"), err)
 	}
@@ -141,13 +140,13 @@ func runLogList(cmd *cobra.Command) error {
 	return nil
 }
 
-func runLogDelete(deleteID string) error {
+func runLogDelete(cmd *cobra.Command, deleteID string) error {
 	id, err := strconv.ParseInt(deleteID, 10, 64)
 	if err != nil {
 		return fmt.Errorf(i18n.T("command.log.invalid_id"), deleteID)
 	}
 
-	if err := db.DeleteLogRecord(id); err != nil {
+	if err := clientService(cmd).DeleteLogRecord(id); err != nil {
 		return err
 	}
 

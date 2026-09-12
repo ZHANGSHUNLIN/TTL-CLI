@@ -8,9 +8,11 @@ import (
 
 	"ttl-cli/command"
 	"ttl-cli/conf"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
+	clientapp "ttl-cli/internal/client/app"
 	"ttl-cli/internal/client/remote"
+	corestorage "ttl-cli/internal/core/storage"
+	"ttl-cli/models"
 	ttlsync "ttl-cli/sync"
 
 	"github.com/spf13/cobra"
@@ -23,11 +25,15 @@ type options struct {
 	cloudAPIKey  string
 	cloudTimeout int
 	confFile     string
+	service      *clientapp.Service
 }
 
 // NewRootCommand builds the ttl client command tree.
 func NewRootCommand() *cobra.Command {
-	opts := &options{}
+	return newRootCommand(&options{})
+}
+
+func newRootCommand(opts *options) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "ttl",
 		Short: i18n.T("root.short"),
@@ -66,7 +72,6 @@ func NewRootCommand() *cobra.Command {
 		command.ExportCmd,
 		command.ImportCmd,
 		command.LogCmd,
-		newServerCompatibilityCommand(),
 		newSyncCommand(opts),
 		command.WorkspaceCmd,
 		command.WsCmd,
@@ -82,16 +87,18 @@ func Run() int {
 		fmt.Fprintf(os.Stderr, "Warning: Failed to initialize i18n: %v\n", err)
 	}
 
-	root := NewRootCommand()
+	opts := &options{}
+	root := newRootCommand(opts)
 	updateCommandDescriptions(root)
-	if err := root.Execute(); err != nil {
-		fmt.Println(err)
-		return 1
-	}
+	executeErr := root.Execute()
 
 	debug, _ := root.PersistentFlags().GetBool("debug")
-	if err := db.CloseDB(); err != nil && debug {
+	if err := opts.service.Close(); err != nil && debug {
 		fmt.Printf(i18n.T("error.close_db"), err)
+	}
+	if executeErr != nil {
+		fmt.Println(executeErr)
+		return 1
 	}
 	return 0
 }
@@ -109,6 +116,9 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 		ctx := context.WithValue(cmd.Context(), "debug", opts.debug)
 		ctx = context.WithValue(ctx, "confFile", opts.confFile)
 		if !skipDBInit {
+			if opts.service != nil {
+				_ = opts.service.Close()
+			}
 			actualStorageType := opts.storageType
 			if opts.storageType == "sqlite" && !cmd.Flags().Changed("storage") {
 				ttlConf, err := conf.GetTtlConfFromFile(opts.confFile)
@@ -124,21 +134,23 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 				}
 			}
 
-			if err := db.InitDB(actualStorageType, opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.confFile); err != nil {
+			storage, err := clientapp.OpenStorage(actualStorageType, opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.confFile)
+			if err != nil {
 				return fmt.Errorf(i18n.T("error.init_db"), err)
 			}
-			replaceSpecialValuesFromHistory(args)
+			opts.service = clientapp.NewService(storage)
+			replaceSpecialValuesFromHistory(opts.service, args)
 			if shouldRecordHistory(cmd) {
 				resourceKey := ""
 				if len(args) > 0 {
 					resourceKey = args[0]
 				}
-				if err := db.RecordCommandHistory(cmd.Name(), resourceKey, opts.debug); err != nil && opts.debug {
+				if err := opts.service.RecordCommandHistory(cmd.Name(), resourceKey, opts.debug); err != nil && opts.debug {
 					fmt.Printf(i18n.T("error.record_history"), err)
 				}
 			}
 		}
-		cmd.SetContext(ctx)
+		cmd.SetContext(clientapp.WithService(ctx, opts.service))
 		return nil
 	}
 }
@@ -167,7 +179,7 @@ func newSyncCommand(opts *options) *cobra.Command {
 			if opts.cloudAPIURL == "" {
 				return errors.New(i18n.T("command.sync.need_cloud_url"))
 			}
-			localResources, err := db.GetAllResources()
+			localResources, err := opts.service.GetAllResources()
 			if err != nil {
 				return fmt.Errorf(i18n.T("command.sync.error_fetch_local"), err)
 			}
@@ -192,11 +204,11 @@ func newSyncCommand(opts *options) *cobra.Command {
 
 			switch direction {
 			case "pull":
-				return ttlsync.ExecutePull(diff, db.Stor, remoteStorage, false)
+				return ttlsync.ExecutePull(diff, opts.service.Storage(), remoteStorage, false)
 			case "push":
-				return ttlsync.ExecutePush(diff, db.Stor, remoteStorage, false)
+				return ttlsync.ExecutePush(diff, opts.service.Storage(), remoteStorage, false)
 			case "auto":
-				return executeInteractiveSync(diff, remoteStorage)
+				return executeInteractiveSync(diff, opts.service.Storage(), remoteStorage)
 			default:
 				return fmt.Errorf(i18n.T("command.sync.invalid_direction"), direction)
 			}
@@ -207,7 +219,7 @@ func newSyncCommand(opts *options) *cobra.Command {
 	return cmd
 }
 
-func executeInteractiveSync(diff ttlsync.DiffResult, remoteStorage db.Storage) error {
+func executeInteractiveSync(diff ttlsync.DiffResult, localStorage, remoteStorage corestorage.Storage) error {
 	fmt.Println(i18n.T("command.sync.choose_operation"))
 	fmt.Println(i18n.T("command.sync.option_pull"))
 	fmt.Println(i18n.T("command.sync.option_push"))
@@ -219,9 +231,9 @@ func executeInteractiveSync(diff ttlsync.DiffResult, remoteStorage db.Storage) e
 	}
 	switch choice {
 	case "pull":
-		return ttlsync.ExecutePull(diff, db.Stor, remoteStorage, false)
+		return ttlsync.ExecutePull(diff, localStorage, remoteStorage, false)
 	case "push":
-		return ttlsync.ExecutePush(diff, db.Stor, remoteStorage, false)
+		return ttlsync.ExecutePush(diff, localStorage, remoteStorage, false)
 	case "skip":
 		fmt.Println(i18n.T("command.sync.skipped"))
 		return nil
@@ -258,7 +270,7 @@ func newMigrateCommand(opts *options) *cobra.Command {
 					return errors.New(i18n.T("command.migrate.need_source_config"))
 				}
 			}
-			return db.MigrateData(sourceType, targetType, sourceAPIURL, sourceAPIKey, sourceTimeout,
+			return clientapp.MigrateData(sourceType, targetType, sourceAPIURL, sourceAPIKey, sourceTimeout,
 				opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.debug, opts.confFile, opts.confFile)
 		},
 	}
@@ -268,15 +280,16 @@ func newMigrateCommand(opts *options) *cobra.Command {
 	return cmd
 }
 
-func replaceSpecialValuesFromHistory(args []string) {
+func replaceSpecialValuesFromHistory(service *clientapp.Service, args []string) {
 	if len(args) != 1 {
 		return
 	}
 	charsCount := countSpecialChars(args[0])
 	if charsCount > 0 {
-		record, err := db.GetHistoryRecords(charsCount - 1)
+		record, err := service.GetHistoryRecord(charsCount-1, models.Descending)
 		if err != nil {
 			fmt.Printf(i18n.T("error.get_history"), err)
+			return
 		}
 		args[0] = record.ResourceKey
 	}

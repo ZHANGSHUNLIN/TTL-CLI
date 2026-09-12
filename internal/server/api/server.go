@@ -16,7 +16,7 @@ func StartServer(port int, dataDir string) error {
 
 	users := userStore.ListUsers()
 	if len(users) == 0 {
-		fmt.Println("Warning: No users, please run 'ttl server user add' to create users first")
+		fmt.Println("Warning: No users, please run 'ttl-server user add' to create users first")
 	}
 
 	tenantMgr := tenant.NewStorageManager(filepath.Join(dataDir, "tenants"))
@@ -31,7 +31,7 @@ func StartServer(port int, dataDir string) error {
 	handler := MultiTenantAuthMiddleware(userStore, tenantMgr, mux)
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("ttl server started, listening on %s\n", addr)
+	fmt.Printf("ttl-server started, listening on %s\n", addr)
 	fmt.Printf("  REST API: http://localhost:%d/api/v1/\n", port)
 	fmt.Printf("  Data dir: %s\n", dataDir)
 	fmt.Printf("  User count: %d\n", len(users))

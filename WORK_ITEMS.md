@@ -7,12 +7,6 @@ Issue、Project、Pull Request 或远程审批。
 
 <!-- 新任务先放这里。每项至少写清目标和验收条件。 -->
 
-- [ ] W-006 消除客户端对全局存储的依赖
-  - 目标：让客户端命令和同步流程通过显式构造参数使用存储，不再读取 `db.Stor`。
-  - 验收：`command`、`internal/client/cli` 和 `internal/client/sync` 不直接读取 `db.Stor`；兼容门面只服务尚未迁移的外部入口；现有 CLI 行为不变。
-  - 检查：相关单元测试、`go test ./integration_test/...`、`./scripts/regression.sh`、`go test -race ./...` 和架构依赖检查。
-  - 决策：实现时更新 `docs/decisions/2026-09-12-separate-client-server-layout.md`。
-  - 备注：需要先确定命令构造和存储生命周期的所有者。
 - [ ] W-007 实现 TUI 并收敛兼容入口
   - 目标：实现复用 core 用例的 `ttl ui`，并根据版本兼容承诺处理根入口和 `ttl server` 代理。
   - 验收：TUI 不解析 CLI 文本；CLI/TUI 使用同一存储契约；兼容入口的保留或移除有明确版本策略；安装和发布说明同步更新。
@@ -35,6 +29,15 @@ Issue、Project、Pull Request 或远程审批。
 ## Done
 
 <!-- 人工审核通过并完成提交的任务。 -->
+
+- [x] W-006 消除客户端对全局存储的依赖
+  - 目标：让客户端命令和同步流程通过显式构造参数使用存储，不再读取 `db.Stor`。
+  - 验收：`command`、`internal/client/cli` 和 `internal/client/sync` 不直接读取 `db.Stor`；客户端生产链路不再依赖旧存储门面；当前 CLI 行为测试通过。
+  - 检查：`gofmt -s -l .`、`git diff --check`、`go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...`、`./scripts/regression.sh`、`go build -o ttl ./cmd/ttl`、`go build -o ttl-server ./cmd/ttl-server` 和 `go test ./internal/architecture` 均已通过。
+  - 决策：已决策；沿用 [`docs/decisions/2026-09-12-separate-client-server-layout.md`](docs/decisions/2026-09-12-separate-client-server-layout.md)，由 `internal/client/cli` 负责创建并注入显式客户端服务，命令通过 context 使用，命令执行结束后由客户端入口关闭。实现结果已回写该记录，不新增重复 ADR。
+  - 文档：技术设计：[`docs/tech-designs/2026-09-12-client-storage-lifecycle.md`](docs/tech-designs/2026-09-12-client-storage-lifecycle.md)；设计评审：[`docs/reviews/2026-09-12-client-storage-lifecycle-design.md`](docs/reviews/2026-09-12-client-storage-lifecycle-design.md)；代码评审：[`docs/reviews/2026-09-12-client-storage-lifecycle-code.md`](docs/reviews/2026-09-12-client-storage-lifecycle-code.md)（`PASS`）。
+  - 提交：`c58c644`（`refactor: inject client storage service`）。
+  - 备注：客户端生产代码已脱离全局 `db.Stor`，删除了根目录入口和 `ttl server` 兼容代理；旧 `db` 包仍被历史测试使用，物理删除单独处理，避免扩大本任务范围。
 
 - [x] W-005 补齐回归与验收自动化
   - 目标：把 race、架构依赖、旧数据兼容和测试环境隔离变成可重复执行的自动化证据。

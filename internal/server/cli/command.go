@@ -19,7 +19,8 @@ type commandConfig struct {
 	dataDir string
 }
 
-// NewCompatibilityCommand returns the legacy `ttl server` command.
+// NewCompatibilityCommand returns the legacy server command tree for callers
+// that still need to embed the standalone server command.
 func NewCompatibilityCommand() *cobra.Command {
 	cfg := defaultConfig()
 	cmd := newServeCommand("server", &cfg)

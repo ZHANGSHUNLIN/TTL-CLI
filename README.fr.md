@@ -66,7 +66,7 @@ Plus besoin de chercher dans les vieux emails ou de défiler l'historique Slack.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZHANGSHUNLIN/TTL-CLI/main/install.sh)"
 
 # Ou compiler depuis les sources
-go build -o ttl .
+go build -o ttl ./cmd/ttl
 sudo mv ttl /usr/local/bin/
 ```
 
@@ -138,10 +138,10 @@ ttl log list --range month      # Ce mois
 
 ```bash
 # Créer un utilisateur
-ttl server user add alice
+ttl-server user add --id alice --name Alice
 
 # Démarrer le serveur multi-tenant
-ttl server start --port 8080
+ttl-server serve --port 8080
 ```
 
 ### Synchroniser Vos Données

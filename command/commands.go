@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"sort"
 	"ttl-cli/conf"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
+	clientapp "ttl-cli/internal/client/app"
 	"ttl-cli/models"
 	"ttl-cli/util"
 
@@ -50,7 +50,7 @@ var AddCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.add.error_fetch"), err)
 		}
@@ -66,12 +66,12 @@ var AddCmd = &cobra.Command{
 			Tag: util.RemoveDuplicates(addTags),
 		}
 
-		if err := db.SaveResource(key, newResource); err != nil {
+		if err := clientService(cmd).SaveResource(key, newResource); err != nil {
 			return fmt.Errorf(i18n.T("command.add.error_save"), err)
 		}
 		debug := cmd.Context().Value("debug").(bool)
 
-		if err := db.RecordAudit(args[0], "add"); err != nil && debug {
+		if err := clientService(cmd).RecordAudit(args[0], "add"); err != nil && debug {
 			Printf(i18n.T("command.add.audit_error"), err)
 		}
 
@@ -92,7 +92,7 @@ var GetCmd = &cobra.Command{
 	Long:  i18n.T("command.get.long"),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.get.error_fetch"), err)
 		}
@@ -138,7 +138,7 @@ var GetCmd = &cobra.Command{
 			if key.Type == models.TAG {
 				resourceKey = key.OriginKey
 			}
-			if err := db.RecordAudit(resourceKey, "get"); err != nil && debug {
+			if err := clientService(cmd).RecordAudit(resourceKey, "get"); err != nil && debug {
 				Printf(i18n.T("command.get.audit_error"), err)
 			}
 			if key.Type == models.TAG {
@@ -155,7 +155,7 @@ var OpenCmd = &cobra.Command{
 	Long:  i18n.T("command.open.long"),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.open.error_fetch"), err)
 		}
@@ -196,7 +196,7 @@ var DelCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.delete.error_fetch"), err)
 		}
@@ -208,9 +208,15 @@ var DelCmd = &cobra.Command{
 		}
 		debug := cmd.Context().Value("debug").(bool)
 
-		db.CleanupResourceHistory(args[0], debug)
+		historyErr, auditErr := clientService(cmd).CleanupResourceHistory(args[0])
+		if historyErr != nil && debug {
+			Printf("Failed to clean resource history: %v\n", historyErr)
+		}
+		if auditErr != nil && debug {
+			Printf("Failed to clean resource audit: %v\n", auditErr)
+		}
 
-		if err := db.DeleteResource(key); err != nil {
+		if err := clientService(cmd).DeleteResource(key); err != nil {
 			return fmt.Errorf(i18n.T("command.delete.error_delete"), err)
 		}
 
@@ -230,7 +236,7 @@ var TagCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.tag.error_fetch"), err)
 		}
@@ -243,7 +249,7 @@ var TagCmd = &cobra.Command{
 		newTags := append(resource.Tag, args[1:]...)
 		resource.Tag = util.RemoveDuplicates(newTags)
 
-		if err := db.SaveResource(key, resource); err != nil {
+		if err := clientService(cmd).SaveResource(key, resource); err != nil {
 			return fmt.Errorf(i18n.T("command.tag.error_save"), err)
 		}
 
@@ -263,7 +269,7 @@ var DtagCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.dtag.error_fetch"), err)
 		}
@@ -281,7 +287,7 @@ var DtagCmd = &cobra.Command{
 		}
 
 		resource.Tag = newTags
-		if err := db.SaveResource(key, resource); err != nil {
+		if err := clientService(cmd).SaveResource(key, resource); err != nil {
 			return fmt.Errorf(i18n.T("command.dtag.error_save"), err)
 		}
 
@@ -302,7 +308,7 @@ var RenameCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.rename.error_fetch"), err)
 		}
@@ -312,7 +318,7 @@ var RenameCmd = &cobra.Command{
 			return errors.New(i18n.T("command.rename.not_found"))
 		}
 
-		if err := db.DeleteResource(oldKey); err != nil {
+		if err := clientService(cmd).DeleteResource(oldKey); err != nil {
 			return fmt.Errorf(i18n.T("command.rename.error_delete_old"), err)
 		}
 
@@ -321,7 +327,7 @@ var RenameCmd = &cobra.Command{
 			Type: models.ORIGIN,
 		}
 
-		if err := db.SaveResource(newKey, resource); err != nil {
+		if err := clientService(cmd).SaveResource(newKey, resource); err != nil {
 			return fmt.Errorf(i18n.T("command.rename.error_save_new"), err)
 		}
 
@@ -347,7 +353,7 @@ var ConfigCmd = &cobra.Command{
 			return fmt.Errorf(i18n.T("command.config.error_get_path"), err)
 		}
 
-		dbPath, err := db.GetDBPath(confFile, ttlConf.StorageType)
+		dbPath, err := clientapp.GetDBPath(confFile, ttlConf.StorageType)
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.config.error_get_path"), err)
 		}
@@ -386,7 +392,7 @@ var UpdateCmd = &cobra.Command{
 		key := models.ValJsonKey{Key: args[0], Type: models.ORIGIN}
 		debug := cmd.Context().Value("debug").(bool)
 
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.update.error_fetch"), err)
 		}
@@ -395,11 +401,11 @@ var UpdateCmd = &cobra.Command{
 			return fmt.Errorf(i18n.T("command.update.not_found"), args[0])
 		}
 
-		if err := db.RecordAudit(args[0], "update"); err != nil && debug {
+		if err := clientService(cmd).RecordAudit(args[0], "update"); err != nil && debug {
 			Printf(i18n.T("command.update.audit_error"), err)
 		}
 		value := util.UnescapeString(args[1])
-		return db.UpdateResource(key, models.ValJson{Val: value, Tag: existing.Tag})
+		return clientService(cmd).UpdateResource(key, models.ValJson{Val: value, Tag: existing.Tag})
 	},
 }
 
@@ -475,7 +481,7 @@ var AuditCmd = &cobra.Command{
 	Long:  i18n.T("command.audit.long"),
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stats, err := db.GetAuditStats()
+		stats, err := clientService(cmd).GetAuditStats()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.audit.error_fetch"), err)
 		}
@@ -532,7 +538,7 @@ var HistoryCmd = &cobra.Command{
 			}
 		}
 
-		records, err := db.GetAllHistoryRecords()
+		records, err := clientService(cmd).GetAllHistoryRecords()
 		if err != nil {
 			return fmt.Errorf(i18n.T("command.history.error_fetch"), err)
 		}

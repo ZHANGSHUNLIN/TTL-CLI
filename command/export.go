@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 	"ttl-cli/models"
 
@@ -50,9 +49,9 @@ var ExportCmd = &cobra.Command{
 
 		switch exportFormat {
 		case "json":
-			count, err = exportJSON(out, exportType, toFile)
+			count, err = exportJSON(cmd, out, exportType, toFile)
 		case "csv":
-			count, err = exportCSV(out, exportType)
+			count, err = exportCSV(cmd, out, exportType)
 		default:
 			return fmt.Errorf(i18n.T("command.export.unsupported_format"), exportFormat)
 		}
@@ -68,32 +67,32 @@ var ExportCmd = &cobra.Command{
 	},
 }
 
-func exportCSV(out io.Writer, exportType string) (int, error) {
+func exportCSV(cmd *cobra.Command, out io.Writer, exportType string) (int, error) {
 	w := csv.NewWriter(out)
 	var count int
 	var err error
 
 	switch exportType {
 	case "resources":
-		resources, e := db.GetAllResources()
+		resources, e := clientService(cmd).GetAllResources()
 		if e != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_resources"), e)
 		}
 		count, err = WriteResourcesCSV(w, resources)
 	case "audit":
-		records, e := db.GetAllAuditRecords()
+		records, e := clientService(cmd).GetAllAuditRecords()
 		if e != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_audit"), e)
 		}
 		count, err = WriteAuditCSV(w, records)
 	case "history":
-		records, e := db.GetAllHistoryRecords()
+		records, e := clientService(cmd).GetAllHistoryRecords()
 		if e != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_history"), e)
 		}
 		count, err = WriteHistoryCSV(w, records)
 	case "log":
-		records, e := db.GetLogRecords("", "")
+		records, e := clientService(cmd).GetLogRecords("", "")
 		if e != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_log"), e)
 		}
@@ -114,13 +113,13 @@ func exportCSV(out io.Writer, exportType string) (int, error) {
 	return count, nil
 }
 
-func exportJSON(out io.Writer, exportType string, toFile bool) (int, error) {
+func exportJSON(cmd *cobra.Command, out io.Writer, exportType string, toFile bool) (int, error) {
 	var data interface{}
 	var items []interface{}
 
 	switch exportType {
 	case "resources":
-		resources, err := db.GetAllResources()
+		resources, err := clientService(cmd).GetAllResources()
 		if err != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_resources"), err)
 		}
@@ -139,7 +138,7 @@ func exportJSON(out io.Writer, exportType string, toFile bool) (int, error) {
 			"items":       items,
 		}
 	case "audit":
-		records, err := db.GetAllAuditRecords()
+		records, err := clientService(cmd).GetAllAuditRecords()
 		if err != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_audit"), err)
 		}
@@ -152,7 +151,7 @@ func exportJSON(out io.Writer, exportType string, toFile bool) (int, error) {
 			"items":       items,
 		}
 	case "history":
-		records, err := db.GetAllHistoryRecords()
+		records, err := clientService(cmd).GetAllHistoryRecords()
 		if err != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_history"), err)
 		}
@@ -165,7 +164,7 @@ func exportJSON(out io.Writer, exportType string, toFile bool) (int, error) {
 			"items":       items,
 		}
 	case "log":
-		records, err := db.GetLogRecords("", "")
+		records, err := clientService(cmd).GetLogRecords("", "")
 		if err != nil {
 			return 0, fmt.Errorf(i18n.T("command.export.error_fetch_log"), err)
 		}

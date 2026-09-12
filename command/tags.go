@@ -3,7 +3,6 @@ package command
 import (
 	"fmt"
 	"sort"
-	"ttl-cli/db"
 	"ttl-cli/i18n"
 	"ttl-cli/models"
 
@@ -17,14 +16,14 @@ var TagsCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			return runTagsList()
+			return runTagsList(cmd)
 		}
-		return runTagResources(args[0])
+		return runTagResources(cmd, args[0])
 	},
 }
 
-func runTagsList() error {
-	stats, err := db.GetTagStats()
+func runTagsList(cmd *cobra.Command) error {
+	stats, err := clientService(cmd).GetTagStats()
 	if err != nil {
 		return fmt.Errorf(i18n.T("command.tags.error_fetch"), err)
 	}
@@ -41,8 +40,8 @@ func runTagsList() error {
 	return nil
 }
 
-func runTagResources(tag string) error {
-	resources, err := db.GetAllResources()
+func runTagResources(cmd *cobra.Command, tag string) error {
+	resources, err := clientService(cmd).GetAllResources()
 	if err != nil {
 		return fmt.Errorf(i18n.T("command.tags.error_fetch"), err)
 	}

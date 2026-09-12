@@ -1,18 +1,19 @@
 package cli
 
 import (
-	"os"
-	"reflect"
 	"testing"
 )
 
-func TestNewRootCommand_HasClientAndCompatibilityCommands(t *testing.T) {
+func TestNewRootCommand_HasClientCommands(t *testing.T) {
 	root := NewRootCommand()
-	for _, name := range []string{"add", "get", "sync", "migrate", "workspace", "server"} {
+	for _, name := range []string{"add", "get", "sync", "migrate", "workspace"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil || cmd == nil || cmd.Name() != name {
 			t.Fatalf("root command does not expose %s: cmd=%v err=%v", name, cmd, err)
 		}
+	}
+	if _, _, err := root.Find([]string{"server"}); err == nil {
+		t.Fatal("client root must not expose server compatibility command")
 	}
 }
 
@@ -23,16 +24,5 @@ func TestCountSpecialChars(t *testing.T) {
 		if got := countSpecialChars(input); got != want {
 			t.Errorf("countSpecialChars(%q) = %d, want %d", input, got, want)
 		}
-	}
-}
-
-func TestServerArgs(t *testing.T) {
-	original := os.Args
-	t.Cleanup(func() { os.Args = original })
-	os.Args = []string{"ttl", "--conf", "test.ini", "server", "user", "list"}
-	got := serverArgs(newServerCompatibilityCommand())
-	want := []string{"user", "list"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("serverArgs() = %v, want %v", got, want)
 	}
 }
