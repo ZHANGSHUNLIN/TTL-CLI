@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"ttl-cli/command"
 	"ttl-cli/conf"
@@ -19,13 +22,20 @@ import (
 )
 
 type options struct {
-	debug        bool
-	storageType  string
-	cloudAPIURL  string
-	cloudAPIKey  string
-	cloudTimeout int
-	confFile     string
-	service      *clientapp.Service
+	debug          bool
+	json           bool
+	nonInteractive bool
+	storageType    string
+	cloudAPIURL    string
+	cloudAPIKey    string
+	cloudTimeout   int
+	confFile       string
+	service        *clientapp.Service
+}
+
+type runResult struct {
+	exitCode int
+	stdout   []byte
 }
 
 // NewRootCommand builds the ttl client command tree.
@@ -44,6 +54,8 @@ func newRootCommand(opts *options) *cobra.Command {
 	}
 
 	root.PersistentFlags().BoolVarP(&opts.debug, "debug", "D", false, i18n.T("root.flag_debug"))
+	root.PersistentFlags().BoolVar(&opts.json, "json", false, "Output versioned JSON for supported resource commands")
+	root.PersistentFlags().BoolVar(&opts.nonInteractive, "non-interactive", false, "Disable interactive input for supported resource commands")
 	root.PersistentFlags().StringVar(&opts.storageType, "storage", "sqlite", i18n.T("root.flag_storage"))
 	root.PersistentFlags().StringVar(&opts.cloudAPIURL, "cloud-url", "", i18n.T("root.flag_cloud_url"))
 	root.PersistentFlags().StringVar(&opts.cloudAPIKey, "cloud-key", "", i18n.T("root.flag_cloud_key"))
@@ -52,13 +64,13 @@ func newRootCommand(opts *options) *cobra.Command {
 
 	root.AddCommand(
 		command.InitCmd,
-		command.AddCmd,
-		command.GetCmd,
+		newAddCommand(opts),
+		newGetCommand(opts),
 		command.OpenCmd,
-		command.UpdateCmd,
-		command.DelCmd,
-		command.TagCmd,
-		command.DtagCmd,
+		newUpdateCommand(opts),
+		newDeleteCommand(opts),
+		newTagCommand(opts),
+		newDeleteTagCommand(opts),
 		command.TagsCmd,
 		command.RenameCmd,
 		command.ConfigCmd,
@@ -89,22 +101,108 @@ func Run() int {
 
 	opts := &options{}
 	root := newRootCommand(opts)
+	root.SetIn(os.Stdin)
+	root.SetErr(os.Stderr)
+	requestedJSON := boolFlagEnabled(os.Args[1:], "--json")
+	requestedNonInteractive := boolFlagEnabled(os.Args[1:], "--non-interactive")
+	if requestedJSON || requestedNonInteractive {
+		root.SilenceErrors = true
+		root.SilenceUsage = true
+	}
+	var jsonOutput bytes.Buffer
+	if requestedJSON {
+		root.SetOut(&jsonOutput)
+	} else {
+		root.SetOut(os.Stdout)
+	}
 	updateCommandDescriptions(root)
-	executeErr := root.Execute()
+	result := executeRoot(root, opts, os.Args[1:], requestedJSON, &jsonOutput)
+	if len(result.stdout) > 0 {
+		if _, err := os.Stdout.Write(result.stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return exitSystemError
+		}
+	}
+	return result.exitCode
+}
 
-	debug, _ := root.PersistentFlags().GetBool("debug")
-	if err := opts.service.Close(); err != nil && debug {
-		fmt.Printf(i18n.T("error.close_db"), err)
+func executeRoot(root *cobra.Command, opts *options, args []string, requestedJSON bool, jsonOutput *bytes.Buffer) (result runResult) {
+	defer func() {
+		if requestedJSON && result.exitCode == exitSuccess {
+			result.stdout = append([]byte(nil), jsonOutput.Bytes()...)
+		}
+	}()
+	root.SetArgs(args)
+	executeErr := root.Execute()
+	requestedNonInteractive := boolFlagEnabled(args, "--non-interactive")
+	if executeErr != nil && (requestedJSON || requestedNonInteractive) {
+		if _, ok := executeErr.(*cliError); !ok && isArgumentError(executeErr) {
+			executeErr = invalidArgument(executeErr.Error())
+		}
 	}
+
+	executeErr = mergeCloseError(root, opts, executeErr)
 	if executeErr != nil {
-		fmt.Println(executeErr)
-		return 1
+		jsonMode := opts.json || requestedJSON
+		machineMode := jsonMode || opts.nonInteractive || requestedNonInteractive
+		if jsonMode {
+			if err := writeJSONError(root.ErrOrStderr(), executeErr); err != nil {
+				fmt.Fprintln(root.ErrOrStderr(), err)
+				return runResult{exitCode: exitSystemError}
+			}
+		} else if machineMode {
+			fmt.Fprintln(root.ErrOrStderr(), executeErr)
+		} else {
+			fmt.Fprintln(root.OutOrStdout(), executeErr)
+		}
+		return runResult{exitCode: exitCodeFor(executeErr, machineMode)}
 	}
-	return 0
+	return runResult{exitCode: exitSuccess}
+}
+
+func mergeCloseError(root *cobra.Command, opts *options, executeErr error) error {
+	debug, _ := root.PersistentFlags().GetBool("debug")
+	closeErr := opts.service.Close()
+	if executeErr == nil && closeErr != nil {
+		return closeErr
+	}
+	if closeErr != nil && debug && !opts.json {
+		fmt.Fprintf(root.OutOrStdout(), i18n.T("error.close_db"), closeErr)
+	}
+	return executeErr
+}
+
+func boolFlagEnabled(args []string, target string) bool {
+	enabled := false
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == target {
+			enabled = true
+			continue
+		}
+		prefix := target + "="
+		if strings.HasPrefix(arg, prefix) {
+			value, err := strconv.ParseBool(strings.TrimPrefix(arg, prefix))
+			if err != nil {
+				enabled = true
+				continue
+			}
+			enabled = value
+		}
+	}
+	return enabled
 }
 
 func newPreRun(opts *options) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		mode := invocationMode{json: opts.json, nonInteractive: opts.nonInteractive || opts.json}
+		ctx := context.WithValue(cmd.Context(), machineModeKey{}, mode)
+		cmd.SetContext(ctx)
+		if err := validateMachineMode(cmd); err != nil {
+			return err
+		}
 		if cmd.Name() == "server" || cmd.Parent() != nil && cmd.Parent().Name() == "user" {
 			return nil
 		}
@@ -113,7 +211,7 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 			cmd.Parent() != nil && cmd.Parent().Name() == "workspace" ||
 			cmd.Name() == "ws"
 
-		ctx := context.WithValue(cmd.Context(), "debug", opts.debug)
+		ctx = context.WithValue(cmd.Context(), "debug", opts.debug)
 		ctx = context.WithValue(ctx, "confFile", opts.confFile)
 		if !skipDBInit {
 			if opts.service != nil {
@@ -139,14 +237,14 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 				return fmt.Errorf(i18n.T("error.init_db"), err)
 			}
 			opts.service = clientapp.NewService(storage)
-			replaceSpecialValuesFromHistory(opts.service, args)
+			replaceSpecialValuesFromHistory(cmd, opts.service, args)
 			if shouldRecordHistory(cmd) {
 				resourceKey := ""
 				if len(args) > 0 {
 					resourceKey = args[0]
 				}
-				if err := opts.service.RecordCommandHistory(cmd.Name(), resourceKey, opts.debug); err != nil && opts.debug {
-					fmt.Printf(i18n.T("error.record_history"), err)
+				if err := opts.service.RecordCommandHistory(cmd.Name(), resourceKey, opts.debug); err != nil && opts.debug && !mode.json {
+					fmt.Fprintf(cmd.OutOrStdout(), i18n.T("error.record_history"), err)
 				}
 			}
 		}
@@ -280,7 +378,7 @@ func newMigrateCommand(opts *options) *cobra.Command {
 	return cmd
 }
 
-func replaceSpecialValuesFromHistory(service *clientapp.Service, args []string) {
+func replaceSpecialValuesFromHistory(cmd *cobra.Command, service *clientapp.Service, args []string) {
 	if len(args) != 1 {
 		return
 	}
@@ -288,7 +386,9 @@ func replaceSpecialValuesFromHistory(service *clientapp.Service, args []string) 
 	if charsCount > 0 {
 		record, err := service.GetHistoryRecord(charsCount-1, models.Descending)
 		if err != nil {
-			fmt.Printf(i18n.T("error.get_history"), err)
+			if !modeFromCommand(cmd).json {
+				fmt.Fprintf(cmd.OutOrStdout(), i18n.T("error.get_history"), err)
+			}
 			return
 		}
 		args[0] = record.ResourceKey

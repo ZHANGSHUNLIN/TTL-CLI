@@ -114,6 +114,23 @@ ttl open my-link
 ttl del old-key
 ```
 
+### Script and CI usage
+
+The core resource commands `add`, `get`, `update`, `del`, `tag`, and `dtag` support a versioned machine interface:
+
+```bash
+# Read one resource as JSON
+ttl get api-token --json
+
+# Preserve piped content exactly, including its trailing newline
+printf 'line 1\nline 2\n' | ttl add release-notes - --json
+
+# Keep text output but disable prompts and implicit terminal input
+ttl get api --non-interactive
+```
+
+`--json` writes one success document to stdout or one error document to stderr. It also implies `--non-interactive`. Machine-mode exit codes are `1` for system failures, `2` for invalid arguments, `3` for missing resources, and `4` for conflicts, ambiguous matches, or required interaction. Other commands reject these machine-mode flags until they define their own contract.
+
 ---
 
 ## 📝 Work Log
