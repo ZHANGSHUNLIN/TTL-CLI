@@ -5,7 +5,7 @@ description: Use when starting, updating, reviewing, blocking, or completing a t
 
 # Personal Work Item
 
-Use `WORK_ITEMS.md` as the only project-level task state. Do not introduce GitHub Issue, Project, Pull Request, reviewer assignment, or approval-score steps for this local workflow.
+Use `WORK_ITEMS.md` as the current project-level task state. Completed items may be moved, with their full evidence intact, to the repository's `WORK_ITEMS_ARCHIVE.md` history file. Do not introduce GitHub Issue, Project, Pull Request, reviewer assignment, or approval-score steps for this local workflow.
 
 ## Start a task
 

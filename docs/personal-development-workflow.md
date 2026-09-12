@@ -1,6 +1,6 @@
 # Personal Development Workflow
 
-本项目采用面向个人练习的本地开发流程。`WORK_ITEMS.md` 是唯一的项目任务状态记录，不使用 GitHub Issue、Project、Pull Request、reviewer 请求或审批积分。
+本项目采用面向个人练习的本地开发流程。`WORK_ITEMS.md` 是当前项目任务状态记录；已完成任务的历史保存在 [`WORK_ITEMS_ARCHIVE.md`](../WORK_ITEMS_ARCHIVE.md)。不使用 GitHub Issue、Project、Pull Request、reviewer 请求或审批积分。
 
 工程 Skill 的索引见 [`docs/engineering-skills.md`](engineering-skills.md)，具体规则位于 [`.agents/skills/`](../.agents/skills/)。回归测试的分层说明见 [`docs/regression-testing.md`](regression-testing.md)。Skill 是可按场景复用的操作规范，不会替代任务清单、人工审核或本地 commit。
 
@@ -14,6 +14,8 @@
 6. 执行任务对应的自动检查，并进行人工审核。
 7. 审核通过后创建本地 Git commit，再把任务移动到 `Done`。
 8. 遇到无法继续的问题，把任务移动到 `Blocked`，记录原因、等待对象和下一步。
+
+完成任务并创建 commit 后，可以把完整条目从 `WORK_ITEMS.md` 的 `Done` 区域迁移到 [`WORK_ITEMS_ARCHIVE.md`](../WORK_ITEMS_ARCHIVE.md)。归档只减少当前任务板的历史内容，不改变任务编号、完成证据或状态规则。
 
 没有必要为每个练习创建分支。需要保留多个实验版本时，使用本地分支；分支提交前仍然以 `WORK_ITEMS.md` 中的任务为准。
 
