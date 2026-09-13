@@ -7,6 +7,15 @@
 ## Tasks
 
 - W-007 实现基础 TUI 本地资源闭环
+  - 类型：feature
+  - 优先级：P1
+  - 当前阶段：delivery_review
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-006
+  - 产物：需求=[`docs/requirements/2026-09-12-basic-tui.md`](docs/requirements/2026-09-12-basic-tui.md)；方案=[`docs/tech-designs/2026-09-12-basic-tui.md`](docs/tech-designs/2026-09-12-basic-tui.md)；评审=[`docs/reviews/2026-09-12-basic-tui-design.md`](docs/reviews/2026-09-12-basic-tui-design.md)；WBS=[`docs/task-breakdowns/2026-09-12-tui-scope-split.md`](docs/task-breakdowns/2026-09-12-tui-scope-split.md)；测试=[`docs/tests/2026-09-12-basic-tui.md`](docs/tests/2026-09-12-basic-tui.md)；验收=[`docs/acceptance/2026-09-12-basic-tui.md`](docs/acceptance/2026-09-12-basic-tui.md)；代码评审=[`docs/reviews/2026-09-12-basic-tui-code.md`](docs/reviews/2026-09-12-basic-tui-code.md)（`CONDITIONAL`）；提交：待完成
+  - 阻塞原因：稳定文案本地化和 owner 真实终端完整验收尚未完成
+  - 下一步：补齐本地化、完成真实终端创建/搜索/详情/编辑/标签/删除流程和窄屏验收，再复审代码评审项
   - 目标：实现复用 core 用例的 `ttl ui`，只覆盖本地资源浏览、搜索、查看、创建/修改、标签维护和安全删除。
   - 验收：TUI 不解析 CLI 文本；CLI/TUI 使用同一存储契约；空态、错误态、未保存编辑、删除确认和终端恢复可观察；网络或同步不可用不阻塞本地闭环。
   - 检查：`go test ./internal/client/app ./internal/client/cli ./internal/client/tui ./integration_test/...`、`./scripts/regression.sh /tmp/ttl-w007` 和完整 `./scripts/verify.sh` 已通过；PTY 冒烟已观察空态、alternate screen 进入/退出、光标和 bracketed-paste 恢复。仍需 owner 人工完成完整创建/搜索/详情/编辑/标签/删除流程以及窄终端验收。
@@ -15,6 +24,15 @@
   - 备注：W-006/T-01 已完成并提交；W-007 T-02 已实现并完成自动检查与首轮代码评审。任务保持 `Doing`，待补齐 TUI 稳定文案本地化并完成 owner 真实终端完整流程后复审；不依赖候选 `ttl pick`，也未加入远端/同步、工作区、复制、打开、外部编辑器或批量操作。
 
 - W-013 评估并实现 `ttl pick` 快速选择模式（候选）
+  - 类型：feature
+  - 优先级：P2
+  - 当前阶段：requirements
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-006
+  - 产物：需求=[`docs/requirements/2026-09-12-ttl-pick.md`](docs/requirements/2026-09-12-ttl-pick.md)；方案=[`docs/tech-designs/2026-09-13-ttl-pick.md`](docs/tech-designs/2026-09-13-ttl-pick.md)；评审=[`docs/reviews/2026-09-13-ttl-pick-design.md`](docs/reviews/2026-09-13-ttl-pick-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-ttl-pick.md`](docs/task-breakdowns/2026-09-13-ttl-pick.md)；测试=[`docs/tests/2026-09-13-ttl-pick.md`](docs/tests/2026-09-13-ttl-pick.md)；验收=[`docs/acceptance/2026-09-13-ttl-pick.md`](docs/acceptance/2026-09-13-ttl-pick.md)；提交：待完成
+  - 阻塞原因：候选范围、`--print`、空结果错误类别和 query 空格语义尚未冻结
+  - 下一步：确认首期承诺和开放问题，再进入技术设计与方案评审
   - 目标：独立评估短生命周期的资源搜索、选择和输出入口，不与完整 `ttl ui` 绑定。
   - 验收：独立需求明确 query、候选、选择、取消、无结果、输出和退出行为；交互、管道输出和无 TTY 失败路径可测试；不包含 `--copy`/`--open`；延期不阻塞 W-007。
   - 检查：独立需求/设计评审、交互选择测试、管道输出回归和无 TTY 失败路径测试。
@@ -53,6 +71,15 @@
   - 备注：任务创建只写本地项目文件，不自动提交 Git；文档生成内容是可编辑骨架，不能替代人工需求、方案和评审。2026-09-13 owner 已人工确认浏览器新建任务流程和窄屏验收通过；本轮 `gofmt -s -l .`、`go test ./...`、`go vet ./...`、`jq empty WORK_ITEMS.json` 和 `git diff --check` 均通过。代码评审结论为 `PASS`，已提交 `39c3e63`，W-015 完成。
 
 - W-010 建立云端服务独立交付链路
+  - 类型：feature
+  - 优先级：P1
+  - 当前阶段：requirements
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-004,W-006
+  - 产物：需求=[`docs/requirements/2026-09-13-server-independent-delivery.md`](docs/requirements/2026-09-13-server-independent-delivery.md)；方案=[`docs/tech-designs/2026-09-13-server-independent-delivery.md`](docs/tech-designs/2026-09-13-server-independent-delivery.md)；评审=[`docs/reviews/2026-09-13-server-independent-delivery-design.md`](docs/reviews/2026-09-13-server-independent-delivery-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-server-independent-delivery.md`](docs/task-breakdowns/2026-09-13-server-independent-delivery.md)；测试=[`docs/tests/2026-09-13-server-independent-delivery.md`](docs/tests/2026-09-13-server-independent-delivery.md)；验收=[`docs/acceptance/2026-09-13-server-independent-delivery.md`](docs/acceptance/2026-09-13-server-independent-delivery.md)；提交：待完成
+  - 阻塞原因：独立构建、制品、部署和回滚方案尚未设计评审
+  - 下一步：完成需求和技术方案，明确 CI、运行时配置、数据卷、健康检查、TLS 与回滚验收
   - 目标：让 `ttl-server` 作为独立应用工程发布、部署、升级和回滚，云端运行环境不依赖 `ttl` 客户端或源码目录。
   - 验收：CI 分别生成可独立下载的 `ttl` 和 `ttl-server` 制品；服务端部署包或最小容器只包含明确的运行文件；配置、密钥、数据卷、日志、健康检查、优雅关闭、TLS 边界和回滚方式有明确约定。
   - 检查：双二进制跨平台构建、服务端依赖边界测试、发布制品内容检查、独立部署冒烟和回滚演练。
