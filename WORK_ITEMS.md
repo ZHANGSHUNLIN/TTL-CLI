@@ -39,18 +39,18 @@
 - W-015 为任务类型提供模板并原子创建研发文档
   - 类型：feature
   - 优先级：P1
-  - 当前阶段：delivery_review
+  - 当前阶段：commit
   - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
   - 父任务：无
   - 依赖：W-014
-  - 产物：需求=[`docs/requirements/2026-09-13-work-item-templates.md`](docs/requirements/2026-09-13-work-item-templates.md)；方案=[`docs/tech-designs/2026-09-13-work-item-templates.md`](docs/tech-designs/2026-09-13-work-item-templates.md)；评审=[`docs/reviews/2026-09-13-work-item-templates-design.md`](docs/reviews/2026-09-13-work-item-templates-design.md)；代码评审=[`docs/reviews/2026-09-13-work-item-templates-code.md`](docs/reviews/2026-09-13-work-item-templates-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-work-item-templates.md`](docs/task-breakdowns/2026-09-13-work-item-templates.md)；测试=[`docs/tests/2026-09-13-work-item-templates.md`](docs/tests/2026-09-13-work-item-templates.md)；验收=[`docs/acceptance/2026-09-13-work-item-templates.md`](docs/acceptance/2026-09-13-work-item-templates.md)；提交：待完成
+  - 产物：需求=[`docs/requirements/2026-09-13-work-item-templates.md`](docs/requirements/2026-09-13-work-item-templates.md)；方案=[`docs/tech-designs/2026-09-13-work-item-templates.md`](docs/tech-designs/2026-09-13-work-item-templates.md)；评审=[`docs/reviews/2026-09-13-work-item-templates-design.md`](docs/reviews/2026-09-13-work-item-templates-design.md)；代码评审=[`docs/reviews/2026-09-13-work-item-templates-code.md`](docs/reviews/2026-09-13-work-item-templates-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-work-item-templates.md`](docs/task-breakdowns/2026-09-13-work-item-templates.md)；测试=[`docs/tests/2026-09-13-work-item-templates.md`](docs/tests/2026-09-13-work-item-templates.md)；验收=[`docs/acceptance/2026-09-13-work-item-templates.md`](docs/acceptance/2026-09-13-work-item-templates.md)；提交：`39c3e63`（`feat: add workflow task templates`）
   - 阻塞原因：无
-  - 下一步：完成交付评审、代码评审和本地 commit
+  - 下一步：无；已完成并提交
   - 目标：按 feature、bugfix、docs、chore、spike、refactor、other 模板创建任务时，同时生成需求、技术方案、方案评审、WBS、测试计划和交付验收文档骨架，保证新任务不会只有一句笼统描述。
   - 验收：模板列表和字段契约可观察；创建一次只产生一个任务 ID 和对应文档；任一文档或任务写入失败都不留下半成品；重复标题/路径、非法 slug 和未知模板被拒绝；旧项目仍可读取；页面可选择模板、填写标题和目标并看到生成结果。
   - 检查：dashboard `go test ./...`、HTTP 创建/冲突/回滚测试、`node --check workflow/web/app.js`、项目 `git diff --check`、浏览器创建任务冒烟。
   - 决策：实现前补充 [`docs/decisions/2026-09-13-work-item-templates.md`](docs/decisions/2026-09-13-work-item-templates.md)，记录原子创建和文档槽位策略。
-  - 备注：任务创建只写本地项目文件，不自动提交 Git；文档生成内容是可编辑骨架，不能替代人工需求、方案和评审。2026-09-13 owner 已人工确认浏览器新建任务流程和窄屏验收通过；本轮 `gofmt -s -l .`、`go test ./...`、`go vet ./...`、`jq empty WORK_ITEMS.json` 和 `git diff --check` 均通过。代码评审结论为 `PASS`，任务进入本地提交阶段。
+  - 备注：任务创建只写本地项目文件，不自动提交 Git；文档生成内容是可编辑骨架，不能替代人工需求、方案和评审。2026-09-13 owner 已人工确认浏览器新建任务流程和窄屏验收通过；本轮 `gofmt -s -l .`、`go test ./...`、`go vet ./...`、`jq empty WORK_ITEMS.json` 和 `git diff --check` 均通过。代码评审结论为 `PASS`，已提交 `39c3e63`，W-015 完成。
 
 - W-010 建立云端服务独立交付链路
   - 目标：让 `ttl-server` 作为独立应用工程发布、部署、升级和回滚，云端运行环境不依赖 `ttl` 客户端或源码目录。

@@ -48,8 +48,8 @@
       "completed": false
     },
     "W-015": {
-      "status": "Review",
-      "completed": false
+      "status": "Done",
+      "completed": true
     }
   }
 }
