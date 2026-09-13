@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	corestorage "ttl-cli/internal/core/storage"
 	storagebbolt "ttl-cli/internal/storage/bbolt"
@@ -21,6 +22,64 @@ type legacyResourceKey struct {
 	Key       string `json:"key"`
 	Type      int    `json:"type"`
 	OriginKey string `json:"originKey"`
+}
+
+func TestLocalStorage_UpdatePreservesResourceMetadata(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		open func(*testing.T) corestorage.Storage
+	}{
+		{name: "bbolt", open: openTestBbolt},
+		{name: "sqlite", open: openTestSQLite},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			storage := test.open(t)
+			key := models.ValJsonKey{Key: "note", Type: models.ORIGIN}
+			if err := storage.SaveResource(key, models.ValJson{Val: "before", Tag: []string{"work"}}); err != nil {
+				t.Fatalf("SaveResource() error = %v", err)
+			}
+			before, err := storage.GetAllResources()
+			if err != nil {
+				t.Fatalf("GetAllResources(before) error = %v", err)
+			}
+			time.Sleep(1100 * time.Millisecond)
+			value := before[key]
+			value.Val = "after"
+			if err := storage.UpdateResource(key, value); err != nil {
+				t.Fatalf("UpdateResource() error = %v", err)
+			}
+			after, err := storage.GetAllResources()
+			if err != nil {
+				t.Fatalf("GetAllResources(after) error = %v", err)
+			}
+			got := after[key]
+			if got.CreatedAt != value.CreatedAt || got.UpdatedAt <= value.UpdatedAt || got.Val != "after" || !slices.Equal(got.Tag, []string{"work"}) {
+				t.Fatalf("updated metadata = %+v, before = %+v", got, value)
+			}
+		})
+	}
+}
+
+func openTestBbolt(t *testing.T) corestorage.Storage {
+	t.Helper()
+	storage := storagebbolt.NewLocalStorage()
+	storage.SetDBPath(filepath.Join(t.TempDir(), "data.bbolt"))
+	if err := storage.Init(); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	t.Cleanup(func() { _ = storage.Close() })
+	return storage
+}
+
+func openTestSQLite(t *testing.T) corestorage.Storage {
+	t.Helper()
+	storage := storagesqlite.NewSQLiteStorage()
+	storage.SetDBPath(filepath.Join(t.TempDir(), "data.db"))
+	if err := storage.Init(); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	t.Cleanup(func() { _ = storage.Close() })
+	return storage
 }
 
 type legacyResourceValue struct {

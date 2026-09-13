@@ -24,4 +24,4 @@
 
 ## 验证
 
-通过 Markdown 结构检查、`git diff --check`、`go test ./...` 和 `go vet ./...` 验证。Skill 的命令和状态规则与 `AGENTS.md`、`WORK_ITEMS.md`、`docs/personal-development-workflow.md` 保持一致。
+通过 Markdown 结构检查、`git diff --check`、`go test ./...` 和 `go vet ./...` 验证。Skill 的命令和状态规则与 `AGENTS.md`、`WORK_ITEMS.md`、`WORK_ITEMS.json`、`docs/personal-development-workflow.md` 保持一致。

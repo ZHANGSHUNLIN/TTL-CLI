@@ -63,8 +63,10 @@ func (s *resourceStorage) DeleteResource(key resource.Key) error {
 
 func TestService_FindResourcesUsesKeyAndTagMatching(t *testing.T) {
 	storage := &resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "alpha", Type: models.ORIGIN}: {Val: "one", Tag: []string{"work"}, CreatedAt: 1},
-		{Key: "beta", Type: models.ORIGIN}:  {Val: "two", Tag: []string{"alpha-tag"}, CreatedAt: 2},
+		{Key: "alpha", Type: models.ORIGIN}:                      {Val: "one", Tag: []string{"work"}, CreatedAt: 1},
+		{Key: "beta", Type: models.ORIGIN}:                       {Val: "alpha in value", Tag: []string{"other"}, CreatedAt: 3},
+		{Key: "gamma", Type: models.ORIGIN}:                      {Val: "three", Tag: []string{"alpha-tag"}, CreatedAt: 2},
+		{Key: "alpha-tag", Type: models.TAG, OriginKey: "gamma"}: {Val: "gamma", CreatedAt: 4},
 	}}
 	service := NewService(storage)
 
@@ -72,10 +74,22 @@ func TestService_FindResourcesUsesKeyAndTagMatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindResources() error = %v", err)
 	}
-	got := []string{matches[0].Key.Key, matches[1].Key.Key}
-	want := []string{"beta", "alpha"}
+	got := []string{matches[0].Key.Key, matches[1].Key.Key, matches[2].Key.Key}
+	want := []string{"beta", "gamma", "alpha"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("FindResources() keys = %v, want %v", got, want)
+	}
+}
+
+func TestService_FindResourcesEmptyQueryListsOriginResources(t *testing.T) {
+	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
+		{Key: "note", Type: models.ORIGIN}:                {Val: "value"},
+		{Key: "tag", Type: models.TAG, OriginKey: "note"}: {Val: "note"},
+	}})
+
+	matches, err := service.FindResources("")
+	if err != nil || len(matches) != 1 || matches[0].Key.Key != "note" {
+		t.Fatalf("FindResources(empty) = %+v, %v", matches, err)
 	}
 }
 
@@ -124,3 +138,29 @@ func TestService_CreateResourceWrapsStorageFailure(t *testing.T) {
 		t.Fatalf("CreateResource() error = %v, kind = %q", err, kind)
 	}
 }
+
+func TestService_DeleteResourceReportsCleanupFailuresAndDeletes(t *testing.T) {
+	key := models.ValJsonKey{Key: "note", Type: models.ORIGIN}
+	cleanupErr := errors.New("cleanup failed")
+	storage := &resourceStorage{resources: map[models.ValJsonKey]models.ValJson{key: {Val: "value"}}}
+	service := NewService(&deleteStorage{resourceStorage: storage, cleanupErr: cleanupErr})
+
+	result, err := service.DeleteResourceWithCleanup("note")
+	if err != nil {
+		t.Fatalf("DeleteResourceWithCleanup() error = %v", err)
+	}
+	if !errors.Is(result.HistoryCleanupError, cleanupErr) || !errors.Is(result.AuditCleanupError, cleanupErr) {
+		t.Fatalf("DeleteResourceWithCleanup() cleanup = %+v", result)
+	}
+	if _, exists := storage.resources[key]; exists {
+		t.Fatal("resource was not deleted")
+	}
+}
+
+type deleteStorage struct {
+	*resourceStorage
+	cleanupErr error
+}
+
+func (s *deleteStorage) DeleteHistoryRecords(string) error { return s.cleanupErr }
+func (s *deleteStorage) DeleteAuditRecords(string) error   { return s.cleanupErr }

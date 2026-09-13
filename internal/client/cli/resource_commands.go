@@ -151,7 +151,8 @@ func newDeleteCommand(_ *options) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := modeFromCommand(cmd)
 			service := serviceFromCommand(cmd)
-			if _, err := service.GetResource(args[0]); err != nil {
+			result, err := service.DeleteResourceWithCleanup(args[0])
+			if err != nil {
 				if kind, ok := clientapp.ErrorKindOf(err); ok && kind == clientapp.ErrorNotFound && !mode.json && !mode.nonInteractive {
 					fmt.Fprintf(cmd.OutOrStdout(), i18n.T("command.delete.not_found"), args[0])
 					return nil
@@ -159,17 +160,13 @@ func newDeleteCommand(_ *options) *cobra.Command {
 				return textCommandError(cmd, "delete", args[0], err)
 			}
 			debug, _ := cmd.Context().Value("debug").(bool)
-			historyErr, auditErr := service.CleanupResourceHistory(args[0])
 			if debug && !mode.json {
-				if historyErr != nil {
-					fmt.Fprintf(cmd.OutOrStdout(), "Failed to clean resource history: %v\n", historyErr)
+				if result.HistoryCleanupError != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "Failed to clean resource history: %v\n", result.HistoryCleanupError)
 				}
-				if auditErr != nil {
-					fmt.Fprintf(cmd.OutOrStdout(), "Failed to clean resource audit: %v\n", auditErr)
+				if result.AuditCleanupError != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "Failed to clean resource audit: %v\n", result.AuditCleanupError)
 				}
-			}
-			if err := service.DeleteResourceByKey(args[0]); err != nil {
-				return textCommandError(cmd, "delete", args[0], err)
 			}
 			if mode.json {
 				return writeJSONSuccess(cmd.OutOrStdout(), deleteData{Key: args[0], Deleted: true})

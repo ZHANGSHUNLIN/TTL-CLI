@@ -226,13 +226,23 @@ func (ls *LocalStorage) UpdateResource(key models.ValJsonKey, newValue models.Va
 			return fmt.Errorf("序列化key失败: %w", err)
 		}
 
+		if existingBytes := bucket.Get(keyBytes); existingBytes != nil {
+			var existing models.ValJson
+			if err := json.Unmarshal(existingBytes, &existing); err != nil {
+				return fmt.Errorf("解析value失败: %w", err)
+			}
+			if newValue.CreatedAt == 0 {
+				newValue.CreatedAt = existing.CreatedAt
+			}
+		}
+		newValue.UpdatedAt = time.Now().Unix()
 		saveValue := newValue
 		if ls.encrypted {
 			encryptedVal, err := crypto.Encrypt(ls.encryptionKey, newValue.Val)
 			if err != nil {
 				return fmt.Errorf("加密val失败: %w", err)
 			}
-			saveValue = models.ValJson{Val: encryptedVal, Tag: newValue.Tag}
+			saveValue = models.ValJson{Val: encryptedVal, Tag: newValue.Tag, CreatedAt: newValue.CreatedAt, UpdatedAt: newValue.UpdatedAt}
 		}
 
 		valBytes, err := json.Marshal(saveValue)

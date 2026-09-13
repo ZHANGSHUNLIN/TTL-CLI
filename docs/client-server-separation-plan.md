@@ -1,10 +1,17 @@
 # TTL 客户端与后端服务拆分方案
 
-状态：已确认；阶段 A、B 已实施，阶段 C 已完成存储包迁移并保留兼容门面
+状态：已确认；源码边界阶段 A、B 已实施，阶段 C 客户端生命周期已完成；云端独立交付尚未完成
 
 ## 1. 目标与术语
 
-本方案把用户所说的“GI/CI”统一理解为本地交互客户端，包括当前 CLI 和产品方向中计划增加的 TUI；后端指为远端同步提供多租户 HTTP API 的服务。
+本方案把本地 CLI 和产品方向中计划增加的 TUI 归入同一个客户端应用；后端是为远端同步提供多租户 HTTP API 的云端服务。
+
+本文所说的“工程”是可独立构建、测试、发布、部署和回滚的应用单元，不等同于 Git 仓库或 Go module。项目必须包含两个独立应用工程：
+
+- `ttl` 客户端工程：运行在用户设备，包含 CLI、未来的 TUI、本地配置、本地数据和远端 API 客户端。
+- `ttl-server` 云服务工程：运行在服务端，包含 HTTP API、认证、用户管理、租户隔离和服务端数据。
+
+两个应用工程当前可以共用一个源码仓库和一个 Go module，但不得共用运行制品、部署配置或运行时权限。TUI 是客户端的另一种交互入口，不是第三个独立应用工程。
 
 拆分目标不是简单增加两个文件夹，而是让以下三类职责拥有明确边界：
 
@@ -12,11 +19,11 @@
 - `server`：HTTP 路由、鉴权、用户管理、租户隔离和服务端启动。
 - `core`：客户端与服务端共同使用的领域模型、存储接口和资源业务规则。
 
-必须保持现有 `ttl` 命令、数据文件和 `/api/v1` HTTP 契约兼容；目录拆分本身不改变用户行为。
+项目当前处于开发阶段，直接删除旧命令入口、旧包门面和旧数据格式支持。拆分以目标边界为准，调用方、测试和文档随实现同步调整。
 
-## 2. 当前混乱的根因
+## 2. 原结构混乱的根因
 
-当前目录不只是命名问题，而是依赖边界交叉：
+拆分前的目录不只是命名问题，而是依赖边界交叉。下表用于解释迁移来源，不代表所有问题仍存在：
 
 | 现状 | 问题 |
 | --- | --- |
@@ -30,7 +37,7 @@
 
 ## 3. 目标目录
 
-采用一个 Go module、两个可执行入口、共享内部包的布局：
+采用一个源码仓库和 Go module、两个独立应用工程、两个可执行入口以及受控共享内部包的布局：
 
 ```text
 ttl-cli/
@@ -69,7 +76,7 @@ ttl-cli/
 └── go.mod
 ```
 
-这里保留一个 module，而不是立即拆为两个仓库或多个 module。客户端和服务端仍共享数据结构与存储语义，单 module 能先获得清晰目录，同时避免版本联动和发布流程复杂化。
+这里保留一个 module，而不是立即拆为两个仓库或多个 module。客户端和服务端仍共享数据结构与存储语义，单 module 可以避免过早引入共享模块版本联动，但不降低应用和部署边界：云端最终只运行 `ttl-server` 制品，客户端最终只分发 `ttl` 制品。
 
 ## 4. 依赖规则
 
@@ -94,8 +101,8 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 
 具体规则：
 
-1. 客户端访问远端只能通过 `internal/client/remote` 的 HTTP 契约，不能直接调用 server handler；迁移期仅 `internal/client/cli` 可依赖 `internal/server/cli` 以保留同进程的 `ttl server` 兼容入口。
-2. 服务端不依赖 Cobra、终端输出、客户端配置或工作空间。
+1. 客户端访问远端只能通过 `internal/client/remote` 的 HTTP 契约，不能直接调用 server handler；任何客户端包都不得依赖 `internal/server`。
+2. `internal/server/api` 和 `internal/server/tenant` 不依赖客户端 Cobra 命令、终端交互、客户端配置或工作空间；`internal/server/cli` 可以使用 Cobra 提供服务端自身的 `serve` 和用户管理命令。
 3. `core` 不依赖具体数据库、HTTP、Cobra 或全局变量。
 4. SQLite 与 bbolt 实现依赖 `core/storage`，反向依赖禁止。
 5. API DTO 只属于 server API；若客户端需要同一 JSON 契约，提取为小型共享 protocol 包，不直接共享 handler 内部类型。
@@ -104,7 +111,7 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 
 | 当前文件/目录 | 目标位置 | 说明 |
 | --- | --- | --- |
-| `main.go` | 拆到 `cmd/ttl/main.go`、`internal/client/cli/`、`internal/server/app/` | 根入口只保留依赖组装和退出码 |
+| `main.go` | 删除；入口拆到 `cmd/ttl/main.go`、`cmd/ttl-server/main.go` | 不保留根目录构建入口 |
 | `migrate.go` | `internal/client/cli/migrate.go` | 这是客户端数据运维命令 |
 | `command/*.go` | `internal/client/cli/` | CLI/TUI 共享逻辑要先从 Cobra handler 中提取 |
 | `sync/` | `internal/client/sync/` | 属于本地客户端对远端的同步用例 |
@@ -123,9 +130,9 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 | `i18n/` | `internal/i18n/` | 主要服务本地交互；服务端错误后续单独规范 |
 | `util/` | 按真实消费者下沉 | 不保留泛化的杂物包 |
 
-## 6. 可执行程序和兼容性
+## 6. 可执行程序
 
-最终产出两个二进制：
+两个应用工程必须分别产出二进制：
 
 ```bash
 go build -o ttl ./cmd/ttl
@@ -145,7 +152,15 @@ ttl-server user add --id alice --name Alice
 ttl-server user list
 ```
 
-迁移期保留原来的 `ttl server ...` 作为兼容代理，并在后续版本明确弃用周期。第一阶段只新增 `ttl-server`，不立即删除旧入口。`/api/v1` 路径、请求/响应 JSON 和 API Key 头保持不变。
+服务端能力只通过 `ttl-server` 暴露，`ttl` 不提供 `server` 或服务端用户管理命令。客户端与服务端需要同时调整协议时，直接更新 `/api/v1` 实现、调用方和测试。
+
+### 6.1 构建与部署边界
+
+- 客户端发布物只包含 `ttl`，面向用户设备安装；CLI 和 TUI 共享该客户端制品。
+- 云端发布物只包含 `ttl-server` 及其运行所需文件，不包含 `ttl`、客户端配置、工作空间数据或客户端安装脚本。
+- 客户端和服务端使用独立的 CI 构建任务、制品名称、校验和、发布步骤与回滚目标；两者可以由同一个 Git tag 触发，但任一方必须能够单独重建和部署。
+- 构建环境可以检出整个 monorepo；运行环境只能获得对应制品。不得把源码仓库整体复制到云端作为运行目录。
+- 服务端部署必须明确监听地址、数据卷、密钥注入、日志、健康检查、优雅关闭、TLS 终止位置和最小运行权限。
 
 ## 7. 分阶段实施
 
@@ -153,31 +168,39 @@ ttl-server user list
 
 - [x] 把 server 与 user 命令从 `main.go` 拆到 `internal/server/cli`。
 - [x] 新增 `cmd/ttl-server`，提供 `serve` 和 `user` 命令。
-- [x] 保留根 `ttl` 构建和 `ttl server` 兼容入口，两者复用同一命令实现。
-- [x] 建立 `cmd/ttl` 和可测试的客户端 `NewRootCommand`，根目录只保留兼容包装。
+- [x] 建立 `cmd/ttl` 和可测试的客户端 `NewRootCommand`。
+- [x] 删除根目录 `main.go` 和客户端中的 `ttl server` 入口，客户端二进制不得链接服务端实现。
 - 验收：两个二进制可构建；原 CLI 黑盒回归通过；server 单元与集成测试通过。
 
 ### 阶段 B：拆 HTTP 客户端与服务端存储
 
 - [x] 将 `CloudStorage` 从 `db` 移到客户端 remote 包。
 - [x] 将 HTTP API、`UserStore` 和租户存储管理移到 `internal/server`。
-- [x] 将兼容的 `SyncStorage` 移到客户端同步边界。
+- [x] 将 `SyncStorage` 移到客户端同步边界。
 - [x] 用接口构造 server handler，不再回退到全局 `db.Stor`。
-- 验收：客户端包不 import server 包；server 包不 import Cobra/客户端包；API 契约测试通过。
+- 验收：客户端包不 import server 包；服务端 API 和租户包不 import 客户端包或客户端 Cobra 命令；API 契约测试通过。
 
 ### 阶段 C：建立共享 core 并迁移本地存储
 
-- [x] 抽出最小 `Storage` 接口与资源领域类型；`models` 与 `db.Storage` 暂以类型别名保持源码和数据兼容。
-- [x] SQLite、bbolt 实现迁入 `internal/storage`；`db` 仅保留类型别名、构造器和全局门面以兼容现有命令。
+- [x] 抽出最小 `Storage` 接口与资源领域类型。
+- [x] SQLite、bbolt 实现迁入 `internal/storage`。
+- 删除 `models`、`db` 中的旧类型别名、构造器和全局门面，调用方直接使用目标包。
 - [x] server handler 通过构造函数注入存储，不再读取全局 `db.Stor`。
-- 消除客户端命令对 `db.Stor` 的依赖；server 已通过请求上下文注入，不再依赖该全局变量。
+- [x] 消除客户端命令对 `db.Stor` 的依赖；server 已通过请求上下文注入，不再依赖该全局变量。
 - 验收：`core` 无具体存储和传输依赖；包级、集成和 race 检查通过。
 
-### 阶段 D：接入 TUI 并清理兼容层
+### 阶段 D：建立云端独立交付
+
+- 为 `ttl-server` 建立独立的 CI 构建和发布制品，不能只在本地验证可编译。
+- 提供只包含服务端运行内容的部署包或最小容器镜像。
+- 定义服务端配置、密钥、数据卷、健康检查、优雅关闭、日志和 TLS 边界。
+- 增加部署冒烟、制品内容检查以及独立升级和回滚验证。
+
+### 阶段 E：接入 TUI 并清理旧入口
 
 - 在 `internal/client/tui` 实现 `ttl ui`，复用 core 用例而非解析 CLI 文本。
-- 根据已发布版本的兼容承诺，决定何时删除根目录旧入口与 `ttl server` 代理。
-- 更新安装包，明确 `ttl` 与 `ttl-server` 是否分别发布。
+- [x] 删除根目录旧入口与 `ttl server` 代理。
+- 更新客户端安装包，不得将 `ttl-server` 作为客户端必需组件。
 
 ## 8. 测试与验收
 
@@ -198,34 +221,35 @@ go vet ./...
 go test ./internal/architecture
 ```
 
-结构测试内部使用 `go list -json` 检查直接与传递依赖。迁移期允许 `internal/client/cli` 通过兼容命令引用 server；其他客户端包不得引用 server，`ttl-server` 不得依赖客户端或旧 `command`、`db`、`sync` 包。移除 `ttl server` 兼容入口后，再收紧为 `ttl` 完全不包含 server 实现依赖。
+独立交付阶段还必须验证：发布系统同时生成可分别下载的 `ttl` 和 `ttl-server` 制品；服务端部署只安装 `ttl-server` 制品；服务端冒烟测试不依赖客户端配置、客户端二进制或源码目录。
 
-旧数据兼容由 `integration_test` 中的 `TestSQLiteStorage_LegacyDataCompatibility` 和 `TestBboltStorage_LegacyDataCompatibility` 验证；fixture 按拆分前的表、bucket 和 JSON 字段生成，不经过当前存储写入方法。
+结构测试内部使用 `go list -json` 检查直接与传递依赖。`ttl` 不得依赖任何服务端包；`ttl-server` 不得依赖客户端或旧 `command`、`db`、`sync` 包。
 
 人工验收：
 
+- 云端运行目录或容器只包含 `ttl-server` 及明确声明的运行文件。
+- `ttl-server` 可以脱离客户端制品、客户端配置和源码目录独立启动、升级和回滚。
 - `ttl` 不包含 server 用户管理的实现依赖。
-- `ttl-server` 不读取客户端工作空间，也不依赖终端交互输出。
+- `ttl-server serve` 不读取客户端工作空间，也不要求交互式终端输入。
 - CLI 和未来 TUI 操作同一套 core 用例与本地数据。
 - 客户端与服务端只通过 `/api/v1` 契约通信。
-- 现有 SQLite/bbolt 数据无需迁移即可继续读取。
 - 多租户认证、用户禁用、API Key 重置和租户隔离行为不变。
 
 ## 9. 风险与控制
 
 | 风险 | 控制措施 |
 | --- | --- |
-| 一次移动大量文件导致 diff 无法审核 | 四阶段迁移，每阶段单独任务和验证 |
+| 一次移动大量文件导致 diff 无法审核 | 五阶段迁移，每阶段单独任务和验证 |
 | `internal/` 使外部 Go 使用者无法 import | 当前产品是可执行程序；若以后承诺 SDK，再建立稳定 `pkg/` |
-| 两个二进制增加发布成本 | 第一阶段保留 `ttl server`，先验证独立 server 构建再调整发布脚本 |
+| 两个应用增加发布成本 | 使用同一仓库和可复用流水线模板，但为客户端和服务端生成独立制品与部署步骤 |
 | 去除全局存储改变初始化顺序 | 先增加构造函数和测试，再迁移调用者 |
-| 模型拆分破坏 JSON/数据库兼容 | 保持字段名和序列化标签，增加兼容数据测试 |
+| 模型或协议调整造成两端不一致 | 同一变更同步更新客户端、服务端和契约测试 |
 | 目录看似清楚但业务仍在 handler 中重复 | CLI/TUI 共享行为必须进入 core 用例，入口层只处理输入输出 |
 
 ## 10. 明确不采用的方案
 
 - 不使用 `frontend/` / `backend/` 两个大包：Go 中容易形成新的杂物目录，且共享模型、存储接口无处安放。
-- 不立即拆成两个仓库：当前共享代码多，跨仓版本和发布维护成本高。
+- 不立即拆成两个仓库：两个应用工程的独立性由构建、依赖、制品和部署边界保证；当前共享代码多，跨仓版本维护成本高。
 - 不立即拆成多个 Go module：会引入 replace、版本联动和测试矩阵，不能直接解决职责混杂。
 - 不把 TUI 当作独立后端消费者：本地 TUI 应直接复用 core；只有远端同步经过 HTTP。
 
@@ -233,8 +257,9 @@ go test ./internal/architecture
 
 当仓库达到以下状态时，才算真正完成前后端拆分：
 
-1. 从 `cmd/ttl` 和 `cmd/ttl-server` 能分别看见两个产品入口。
+1. 从 `cmd/ttl` 和 `cmd/ttl-server` 能分别看见客户端与云端服务两个独立应用工程入口。
 2. 从 `internal/client`、`internal/server` 和 `internal/core` 能判断代码归属。
 3. 依赖规则被测试或静态检查验证，而不是只写在文档里。
-4. 现有 CLI、HTTP、数据库和同步兼容性测试全部通过。
-5. README、PROJECT_OVERVIEW、安装和发布说明与新目录一致。
+4. 当前 CLI、HTTP、数据库和同步行为测试全部通过。
+5. 发布系统生成两个独立制品，云端环境不需要 `ttl` 客户端或源码仓库即可部署、升级和回滚 `ttl-server`。
+6. README、PROJECT_OVERVIEW、安装、发布和服务端部署说明与实际边界一致。

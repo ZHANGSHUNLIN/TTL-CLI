@@ -17,7 +17,7 @@ go test ./db -run TestName
 
 ### 2. 集成测试
 
-用于验证数据库、加密、API、同步、文件系统、旧数据兼容和跨包生命周期：
+用于验证数据库、加密、API、同步、文件系统和跨包生命周期：
 
 ```sh
 go test ./...
@@ -26,7 +26,7 @@ go test -race ./...
 go vet ./...
 ```
 
-集成测试应使用临时目录、临时数据库和 `httptest`，不要依赖个人的 `~/.ttl` 或固定端口。涉及默认配置和密钥路径的测试包会在 `TestMain` 中设置独立的临时用户目录；旧数据兼容测试直接生成拆分前的 SQLite 表和 bbolt bucket/JSON 格式，再由当前存储实现读取。
+集成测试应使用临时目录、临时数据库和 `httptest`，不要依赖个人的 `~/.ttl` 或固定端口。涉及默认配置和密钥路径的测试包会在 `TestMain` 中设置独立的临时用户目录。开发阶段只验证当前存储格式；格式变化时同步更新测试数据。
 
 `scripts/verify.sh` 还会为整个验证进程设置临时 `HOME`，同时保留当前 `GOPATH`。这是对所有命令的第二层隔离；测试自身不能把脚本隔离当作读取个人配置的理由。
 
@@ -65,10 +65,10 @@ go vet ./...
 | 用户入口和持久化生命周期可用 | `scripts/regression.sh` |
 | 自定义配置、数据库、密钥和工作空间不写入真实用户目录 | 黑盒文件路径断言和测试包临时 `HOME` |
 | client、server、core 依赖方向受控 | `internal/architecture/dependencies_test.go` |
-| 拆分前 SQLite/bbolt 数据可继续读取 | `TestSQLiteStorage_LegacyDataCompatibility`、`TestBboltStorage_LegacyDataCompatibility` |
+| SQLite/bbolt 当前存储格式可正确读写 | 对应存储包和集成测试 |
 | 并发访问没有已知数据竞争 | `go test -race ./...` |
 
-人工验收仍负责判断产品目标和迁移阶段是否完成，例如是否可以移除 `ttl server` 兼容入口、是否已完成 TUI，以及当前改动是否符合任务范围。自动检查不能替代这些产品决策。
+人工验收仍负责判断产品目标和迁移阶段是否完成，例如旧入口是否已经删除、TUI 是否已完成，以及当前改动是否符合任务范围。自动检查不能替代这些产品决策。
 
 ## 按变更选择检查
 

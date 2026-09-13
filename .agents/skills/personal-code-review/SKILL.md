@@ -5,15 +5,16 @@ description: Use when reviewing a ttl-cli change before local commit. Prioritize
 
 # Personal Code Review
 
-Review the current diff as the task owner. Findings come before summary. A short review with one real blocker is better than a long list of cosmetic comments.
+Review the current diff as the task owner after implementation and test evidence are ready. Findings come before summary. A short review with one real blocker is better than a long list of cosmetic comments.
 
 ## Review order
 
-1. Read `AGENTS.md`, the task in `WORK_ITEMS.md`, and any linked decision record.
+1. Read `AGENTS.md`, the task in `WORK_ITEMS.md`, and any linked requirement, design, breakdown, and decision record.
 2. Read `git diff --stat`, then the complete `git diff`.
 3. Read enough surrounding code to understand ownership and error paths.
 4. Compare every changed behavior with the task's acceptance criteria.
 5. Check the focused evidence selected by `personal-pre-review-checks`.
+6. For a multi-step feature, write the review result to `docs/reviews/YYYY-MM-DD-<slug>-code.md`; a small change may keep the result in `WORK_ITEMS.md`.
 
 ## Priority checks
 

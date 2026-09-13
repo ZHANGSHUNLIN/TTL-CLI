@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -14,12 +15,18 @@ import (
 	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
 	"ttl-cli/internal/client/remote"
+	clienttui "ttl-cli/internal/client/tui"
 	corestorage "ttl-cli/internal/core/storage"
 	"ttl-cli/models"
 	ttlsync "ttl-cli/sync"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 )
+
+type storageOpener func(string, string, string, int, string) (corestorage.Storage, error)
+type terminalDetector func(io.Reader, io.Writer) bool
+type tuiRunner func(clienttui.ResourceService, clienttui.RunOptions) error
 
 type options struct {
 	debug          bool
@@ -31,6 +38,9 @@ type options struct {
 	cloudTimeout   int
 	confFile       string
 	service        *clientapp.Service
+	openStorage    storageOpener
+	isTerminal     terminalDetector
+	runTUI         tuiRunner
 }
 
 type runResult struct {
@@ -85,6 +95,7 @@ func newRootCommand(opts *options) *cobra.Command {
 		command.ImportCmd,
 		command.LogCmd,
 		newSyncCommand(opts),
+		newUICommand(opts),
 		command.WorkspaceCmd,
 		command.WsCmd,
 	)
@@ -161,6 +172,9 @@ func executeRoot(root *cobra.Command, opts *options, args []string, requestedJSO
 }
 
 func mergeCloseError(root *cobra.Command, opts *options, executeErr error) error {
+	if opts.service == nil {
+		return executeErr
+	}
 	debug, _ := root.PersistentFlags().GetBool("debug")
 	closeErr := opts.service.Close()
 	if executeErr == nil && closeErr != nil {
@@ -214,9 +228,6 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 		ctx = context.WithValue(cmd.Context(), "debug", opts.debug)
 		ctx = context.WithValue(ctx, "confFile", opts.confFile)
 		if !skipDBInit {
-			if opts.service != nil {
-				_ = opts.service.Close()
-			}
 			actualStorageType := opts.storageType
 			if opts.storageType == "sqlite" && !cmd.Flags().Changed("storage") {
 				ttlConf, err := conf.GetTtlConfFromFile(opts.confFile)
@@ -231,8 +242,29 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 					}
 				}
 			}
+			if cmd.Name() == "ui" {
+				switch actualStorageType {
+				case "sqlite", "local", "bbolt":
+				default:
+					return fmt.Errorf("ttl ui only supports local sqlite or bbolt storage")
+				}
+				detector := opts.isTerminal
+				if detector == nil {
+					detector = defaultTerminalDetector
+				}
+				if !detector(cmd.InOrStdin(), cmd.OutOrStdout()) {
+					return fmt.Errorf("ttl ui requires an interactive terminal; use the CLI in non-interactive environments")
+				}
+			}
+			if opts.service != nil {
+				_ = opts.service.Close()
+			}
 
-			storage, err := clientapp.OpenStorage(actualStorageType, opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.confFile)
+			opener := opts.openStorage
+			if opener == nil {
+				opener = clientapp.OpenStorage
+			}
+			storage, err := opener(actualStorageType, opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.confFile)
 			if err != nil {
 				return fmt.Errorf(i18n.T("error.init_db"), err)
 			}
@@ -251,6 +283,27 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 		cmd.SetContext(clientapp.WithService(ctx, opts.service))
 		return nil
 	}
+}
+
+func newUICommand(opts *options) *cobra.Command {
+	return &cobra.Command{
+		Use:   "ui",
+		Short: i18n.T("command.ui.short"),
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			runner := opts.runTUI
+			if runner == nil {
+				runner = clienttui.Run
+			}
+			return runner(serviceFromCommand(cmd), clienttui.RunOptions{In: cmd.InOrStdin(), Out: cmd.OutOrStdout()})
+		},
+	}
+}
+
+func defaultTerminalDetector(input io.Reader, output io.Writer) bool {
+	in, inOK := input.(*os.File)
+	out, outOK := output.(*os.File)
+	return inOK && outOK && term.IsTerminal(in.Fd()) && term.IsTerminal(out.Fd())
 }
 
 func shouldRecordHistory(cmd *cobra.Command) bool {

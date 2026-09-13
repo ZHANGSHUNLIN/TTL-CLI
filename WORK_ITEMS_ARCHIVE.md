@@ -1,6 +1,6 @@
 # Archived Work Items
 
-这里保存已经完成并提交的历史工作项。`WORK_ITEMS.md` 仍是当前任务状态的唯一来源；本文件只用于查阅历史，不承载进行中的状态。
+这里保存已经完成并提交的历史工作项。`WORK_ITEMS.md` 保存当前任务正文，`WORK_ITEMS.json` 保存当前任务状态；本文件只用于查阅历史，不承载进行中的状态。
 
 归档规则：
 
@@ -23,6 +23,15 @@
   - 检查：`./scripts/verify.sh`、`git diff --check` 与 `gofmt -s -l .` 已通过。
   - 决策：`docs/decisions/2026-09-12-separate-client-server-layout.md`（adopted）。
   - 备注：已提交为 `b6493cd`，完成的是源码入口和包边界；显式存储依赖、`db.Stor` 清理和云端独立交付分别由后续任务跟踪，不能据此宣称部署拆分已经完成。
+
+- [x] W-006 消除客户端对全局存储的依赖
+  - 目标：让客户端命令和同步流程通过显式构造参数使用存储，不再读取 `db.Stor`。
+  - 验收：`command`、`internal/client/cli` 和 `internal/client/sync` 不直接读取 `db.Stor`；客户端生产链路不再依赖旧存储门面；当前 CLI 行为测试通过。
+  - 检查：`gofmt -s -l .`、`git diff --check`、`go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...`、`./scripts/regression.sh`、`go build -o ttl ./cmd/ttl`、`go build -o ttl-server ./cmd/ttl-server` 和 `go test ./internal/architecture` 均已通过。
+  - 决策：已决策；沿用 [`docs/decisions/2026-09-12-separate-client-server-layout.md`](docs/decisions/2026-09-12-separate-client-server-layout.md)，由 `internal/client/cli` 负责创建并注入显式客户端服务，命令通过 context 使用，命令执行结束后由客户端入口关闭。实现结果已回写该记录，不新增重复 ADR。
+  - 文档：技术设计：[`docs/tech-designs/2026-09-12-client-storage-lifecycle.md`](docs/tech-designs/2026-09-12-client-storage-lifecycle.md)；设计评审：[`docs/reviews/2026-09-12-client-storage-lifecycle-design.md`](docs/reviews/2026-09-12-client-storage-lifecycle-design.md)；代码评审：[`docs/reviews/2026-09-12-client-storage-lifecycle-code.md`](docs/reviews/2026-09-12-client-storage-lifecycle-code.md)（`PASS`）。
+  - 提交：`c58c644`（`refactor: inject client storage service`）。
+  - 备注：客户端生产代码已脱离全局 `db.Stor`，删除了根目录入口和 `ttl server` 兼容代理；旧 `db` 包仍被历史测试使用，物理删除单独处理，避免扩大本任务范围。
 
 - [x] W-003 梳理工程目录与项目导览
   - 目标：明确根目录、核心包、启动链路和常见修改入口，减少目录认知成本。

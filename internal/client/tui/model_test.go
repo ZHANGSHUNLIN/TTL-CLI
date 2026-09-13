@@ -1,0 +1,175 @@
+package tui
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/models"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+type fakeService struct {
+	resources []clientapp.Resource
+	findErr   error
+	writeErr  error
+	deleted   bool
+}
+
+func (s *fakeService) ListResources() ([]clientapp.Resource, error) { return s.resources, s.findErr }
+func (s *fakeService) FindResources(query string) ([]clientapp.Resource, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	var result []clientapp.Resource
+	for _, resource := range s.resources {
+		if strings.Contains(resource.Key.Key, query) || strings.Contains(resource.Value.Val, query) {
+			result = append(result, resource)
+		}
+	}
+	if len(result) == 0 {
+		return nil, &clientapp.ServiceError{Kind: clientapp.ErrorNotFound, Message: "not found"}
+	}
+	return result, nil
+}
+func (s *fakeService) CreateResource(key, value string, tags []string) (clientapp.Resource, error) {
+	if s.writeErr != nil {
+		return clientapp.Resource{}, s.writeErr
+	}
+	resource := clientapp.Resource{Key: models.ValJsonKey{Key: key, Type: models.ORIGIN}, Value: models.ValJson{Val: value, Tag: tags}}
+	s.resources = append(s.resources, resource)
+	return resource, nil
+}
+func (s *fakeService) UpdateResourceValue(key, value string) (clientapp.Resource, error) {
+	if s.writeErr != nil {
+		return clientapp.Resource{}, s.writeErr
+	}
+	for index := range s.resources {
+		if s.resources[index].Key.Key == key {
+			s.resources[index].Value.Val = value
+			return s.resources[index], nil
+		}
+	}
+	return clientapp.Resource{}, errors.New("missing")
+}
+func (s *fakeService) AddResourceTags(key string, tags []string) (clientapp.Resource, error) {
+	if s.writeErr != nil {
+		return clientapp.Resource{}, s.writeErr
+	}
+	for index := range s.resources {
+		if s.resources[index].Key.Key == key {
+			s.resources[index].Value.Tag = append(s.resources[index].Value.Tag, tags...)
+			return s.resources[index], nil
+		}
+	}
+	return clientapp.Resource{}, errors.New("missing")
+}
+func (s *fakeService) DeleteResourceTag(key, tag string) (clientapp.Resource, error) {
+	return clientapp.Resource{}, s.writeErr
+}
+func (s *fakeService) DeleteResourceWithCleanup(string) (clientapp.DeleteResult, error) {
+	if s.writeErr != nil {
+		return clientapp.DeleteResult{}, s.writeErr
+	}
+	s.deleted = true
+	s.resources = nil
+	return clientapp.DeleteResult{}, nil
+}
+
+func TestModel_EmptyAndSearchNoResultsAreObservable(t *testing.T) {
+	service := &fakeService{}
+	model := NewModel(service, 80, 24)
+	model = updateModel(t, model, model.Init()())
+	if view := model.View(); !strings.Contains(view, "No resources yet") {
+		t.Fatalf("View() = %q", view)
+	}
+
+	model.query = "missing"
+	model = updateModel(t, model, model.loadResourcesCmd(model.query)())
+	if view := model.View(); !strings.Contains(view, "No results for \"missing\"") {
+		t.Fatalf("View() = %q", view)
+	}
+}
+
+func TestModel_SaveFailureKeepsEditorAndDraft(t *testing.T) {
+	writeErr := errors.New("disk full")
+	service := &fakeService{resources: testResources(), writeErr: writeErr}
+	model := NewModel(service, 80, 24)
+	model = updateModel(t, model, loadMsg{resources: service.resources})
+	model.startEdit()
+	model.value.SetValue("unsaved draft")
+	model.dirty = true
+	updated, cmd := model.updateEditor(tea.KeyMsg{Type: tea.KeyCtrlS})
+	model = updated.(Model)
+	model = updateModel(t, model, cmd())
+	if model.screen != editScreen || model.value.Value() != "unsaved draft" || !errors.Is(model.err, writeErr) {
+		t.Fatalf("save failure lost state: screen=%v value=%q err=%v", model.screen, model.value.Value(), model.err)
+	}
+}
+
+func TestModel_DeleteRequiresConfirmationAndFailureKeepsResource(t *testing.T) {
+	service := &fakeService{resources: testResources(), writeErr: errors.New("locked")}
+	model := NewModel(service, 80, 24)
+	model = updateModel(t, model, loadMsg{resources: service.resources})
+	model = updateModel(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if model.screen != deleteScreen || service.deleted {
+		t.Fatalf("delete was not gated: screen=%v deleted=%v", model.screen, service.deleted)
+	}
+	updated, cmd := model.updateDelete(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	model = updated.(Model)
+	model = updateModel(t, model, cmd())
+	if model.screen != deleteScreen || len(model.resources) != 1 || model.err == nil {
+		t.Fatalf("delete failure state = %+v", model)
+	}
+}
+
+func TestModel_DirtyEditorRequiresDiscardConfirmation(t *testing.T) {
+	model := NewModel(&fakeService{resources: testResources()}, 80, 24)
+	model.resources = testResources()
+	model.startEdit()
+	model.dirty = true
+	updated, _ := model.updateEditor(tea.KeyMsg{Type: tea.KeyEsc})
+	model = updated.(Model)
+	if model.screen != discardScreen {
+		t.Fatalf("screen = %v, want discard", model.screen)
+	}
+	updated, _ = model.updateDiscard(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if updated.(Model).screen != editScreen {
+		t.Fatalf("discard cancel screen = %v", updated.(Model).screen)
+	}
+}
+
+func TestModel_NarrowAndLongDetailDoNotPanic(t *testing.T) {
+	resources := testResources()
+	resources[0].Value.Val = strings.Repeat("长内容", 100)
+	model := NewModel(&fakeService{resources: resources}, 50, 12)
+	model.resources = resources
+	model.loading = false
+	if view := model.View(); !strings.Contains(view, "Enter details") {
+		t.Fatalf("narrow view = %q", view)
+	}
+	model.screen = detailScreen
+	model.detailOffset = 10
+	if view := model.View(); !strings.Contains(view, "scroll") {
+		t.Fatalf("detail view = %q", view)
+	}
+}
+
+func TestSplitTagsTrimsAndDeduplicates(t *testing.T) {
+	got := splitTags(" work, ,home,work ")
+	if strings.Join(got, ",") != "work,home" {
+		t.Fatalf("splitTags() = %v", got)
+	}
+}
+
+func updateModel(t *testing.T, model Model, msg tea.Msg) Model {
+	t.Helper()
+	updated, _ := model.Update(msg)
+	return updated.(Model)
+}
+
+func testResources() []clientapp.Resource {
+	return []clientapp.Resource{{Key: models.ValJsonKey{Key: "note", Type: models.ORIGIN}, Value: models.ValJson{Val: "value", Tag: []string{"work"}, CreatedAt: 1, UpdatedAt: 2}}}
+}

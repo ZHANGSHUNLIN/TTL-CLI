@@ -2,6 +2,9 @@
   "language": "Français",
   "version": "1.0.0",
   "command": {
+    "ui": {
+      "short": "Ouvrir l’interface locale des ressources"
+    },
     "add": {
       "short": "Ajouter une ressource",
       "long": "Ajouter une ressource avec son nom et son contenu. Utilisez des guillemets si le nom de la ressource contient des espaces. Prend en charge les caractères d'échappement: \\n \\t \\r \\\\ \\\" \\'.",

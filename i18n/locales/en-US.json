@@ -2,6 +2,9 @@
   "language": "English (US)",
   "version": "1.0.0",
   "command": {
+    "ui": {
+      "short": "Open the local resource interface"
+    },
     "add": {
       "short": "Add a resource",
       "long": "Add a resource with its name and content. Use quotes if the resource name contains spaces. Supports escape characters: \\n \\t \\r \\\\ \\\" \\'.",

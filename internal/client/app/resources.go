@@ -84,6 +84,9 @@ func (s *Service) ListResources() ([]Resource, error) {
 
 // FindResources applies the existing key and tag substring matching rules.
 func (s *Service) FindResources(query string) ([]Resource, error) {
+	if query == "" {
+		return s.ListResources()
+	}
 	resources, err := s.GetAllResources()
 	if err != nil {
 		return nil, systemError(ErrorRead, "failed to read resources", err)
@@ -91,7 +94,13 @@ func (s *Service) FindResources(query string) ([]Resource, error) {
 
 	result := make([]Resource, 0)
 	for key, value := range resources {
+		if key.Type != models.ORIGIN {
+			continue
+		}
 		matched := util.ContainsIgnoreCase(key.Key, query)
+		if !matched {
+			matched = util.ContainsIgnoreCase(value.Val, query)
+		}
 		if !matched {
 			for _, tag := range value.Tag {
 				if util.ContainsIgnoreCase(tag, query) {
@@ -136,7 +145,11 @@ func (s *Service) UpdateResourceValue(key, value string) (Resource, error) {
 	if err != nil {
 		return Resource{}, err
 	}
-	if err := s.UpdateResource(resourceKey, models.ValJson{Val: value, Tag: existing.Value.Tag}); err != nil {
+	if err := s.UpdateResource(resourceKey, models.ValJson{
+		Val:       value,
+		Tag:       existing.Value.Tag,
+		CreatedAt: existing.Value.CreatedAt,
+	}); err != nil {
 		return Resource{}, systemError(ErrorUpdate, "failed to update resource", err)
 	}
 	return s.resourceByKey(resourceKey)
@@ -176,16 +189,23 @@ func (s *Service) DeleteResourceTag(key, tag string) (Resource, error) {
 	return s.resourceByKey(resourceKey)
 }
 
-// DeleteResourceByKey deletes one origin resource.
-func (s *Service) DeleteResourceByKey(key string) error {
+// DeleteResult reports non-fatal cleanup failures after a resource deletion.
+type DeleteResult struct {
+	HistoryCleanupError error
+	AuditCleanupError   error
+}
+
+// DeleteResourceWithCleanup deletes one origin resource after best-effort auxiliary cleanup.
+func (s *Service) DeleteResourceWithCleanup(key string) (DeleteResult, error) {
 	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
 	if _, err := s.resourceByKey(resourceKey); err != nil {
-		return err
+		return DeleteResult{}, err
 	}
+	historyErr, auditErr := s.CleanupResourceHistory(key)
 	if err := s.DeleteResource(resourceKey); err != nil {
-		return systemError(ErrorDelete, "failed to delete resource", err)
+		return DeleteResult{}, systemError(ErrorDelete, "failed to delete resource", err)
 	}
-	return nil
+	return DeleteResult{HistoryCleanupError: historyErr, AuditCleanupError: auditErr}, nil
 }
 
 // GetResource returns one origin resource by exact key.

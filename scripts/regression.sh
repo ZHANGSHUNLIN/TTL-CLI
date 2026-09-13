@@ -84,6 +84,17 @@ echo "测试目录: $TEST_DIR"
 echo ""
 echo "[1/1] 用户入口与数据行为..."
 
+echo "   - TUI non-interactive guard"
+if run_cli ui > "$TEST_DIR/ui.stdout" 2> "$TEST_DIR/ui.stderr"; then
+    echo "非 TTY 环境意外启动了 ttl ui" >&2
+    exit 1
+fi
+grep -Fq "interactive terminal" "$TEST_DIR/ui.stdout"
+if [[ -e "$TEST_DIR/data.bbolt" ]]; then
+    echo "ttl ui 在非 TTY 门禁前打开了数据库" >&2
+    exit 1
+fi
+
 echo "   - add/get"
 run_cli add "test-resource" "https://example.com" > /dev/null
 assert_file_exists "$TEST_DIR/data.bbolt"
@@ -126,7 +137,7 @@ assert_cli_contains "tag-test-1" tags work
 echo "   - standalone server entry"
 SERVER_BINARY="$TEST_DIR/ttl-server"
 go build -o "$SERVER_BINARY" ./cmd/ttl-server
-if ! "$SERVER_BINARY" --help | grep -Fq "user"; then
+if ! "$SERVER_BINARY" --help 2>&1 | grep -F -- "user" > /dev/null; then
     echo "ttl-server help 未包含 user 命令" >&2
     exit 1
 fi

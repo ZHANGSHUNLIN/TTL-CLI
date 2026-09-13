@@ -10,9 +10,9 @@
 
 ## 决定
 
-使用仓库内的 `WORK_ITEMS.md` 作为项目任务状态记录。任务只保留 `Inbox`、`Doing`、`Review`、`Blocked` 和 `Done` 五个状态。人工审核由任务拥有者本人完成，审核重点是 diff、验证证据和是否需要决策记录。
+使用仓库内的 `WORK_ITEMS.md` 保存任务正文，使用 `WORK_ITEMS.json` 保存项目任务状态。任务只保留 `Inbox`、`Doing`、`Review`、`Blocked` 和 `Done` 五个状态。人工审核由任务拥有者本人完成，审核重点是 diff、验证证据和是否需要决策记录。
 
-重要设计取舍记录在 `docs/decisions/`。任务状态和设计决策分开维护：`WORK_ITEMS.md` 记录“现在做到哪一步”，决策记录说明“为什么这样做”。
+重要设计取舍记录在 `docs/decisions/`。任务状态和设计决策分开维护：`WORK_ITEMS.json` 记录“现在做到哪一步”，`WORK_ITEMS.md` 记录任务正文，决策记录说明“为什么这样做”。JSON 格式的具体职责和迁移规则由 [`2026-09-12-use-json-work-item-state.md`](2026-09-12-use-json-work-item-state.md) 维护。
 
 ## 备选方案
 
@@ -26,5 +26,4 @@
 
 ## 验证
 
-`WORK_ITEMS.md` 定义任务状态和任务模板。`docs/personal-development-workflow.md` 定义日常流程、自动检查、人工审核和决策记录检查。`docs/decisions/README.md` 定义何时写决策记录以及审核标准。
-
+`WORK_ITEMS.md` 定义任务正文和任务模板，`WORK_ITEMS.json` 定义当前状态元数据。`docs/personal-development-workflow.md` 定义日常流程、自动检查、人工审核和决策记录检查。`docs/decisions/README.md` 定义何时写决策记录以及审核标准。

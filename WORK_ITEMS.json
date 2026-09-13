@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "items": {
+    "W-007": {
+      "status": "Doing",
+      "completed": false
+    },
+    "W-008": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-009": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-010": {
+      "status": "Inbox",
+      "completed": false
+    },
+    "W-011": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-012": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-013": {
+      "status": "Doing",
+      "completed": false,
+      "reviews": [
+        {
+          "id": "review-20260912T145343.769813000Z",
+          "action": "comment",
+          "message": "有没有对当前功能的一个完整的定义？例如有哪些功能给一个罗列一下，现在看起来好像比较的很空泛",
+          "createdAt": "2026-09-12T14:53:43Z"
+        },
+        {
+          "id": "review-20260912T155411.467314000Z",
+          "action": "comment",
+          "message": "需要具体的能力文档，当前只有简易的描述",
+          "createdAt": "2026-09-12T15:54:11Z"
+        }
+      ]
+    },
+    "W-014": {
+      "status": "Doing",
+      "completed": false
+    },
+    "W-015": {
+      "status": "Review",
+      "completed": false
+    }
+  }
+}
