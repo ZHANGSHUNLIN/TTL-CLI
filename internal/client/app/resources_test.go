@@ -7,12 +7,11 @@ import (
 
 	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
 )
 
 type resourceStorage struct {
 	corestorage.Storage
-	resources map[models.ValJsonKey]models.ValJson
+	resources map[resource.ValJsonKey]resource.ValJson
 	readErr   error
 	writeErr  error
 	updated   bool
@@ -29,11 +28,11 @@ func (s *resourceStorage) UpdateResource(key resource.Key, value resource.Value)
 	return nil
 }
 
-func (s *resourceStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
+func (s *resourceStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
 	if s.readErr != nil {
 		return nil, s.readErr
 	}
-	result := make(map[models.ValJsonKey]models.ValJson, len(s.resources))
+	result := make(map[resource.ValJsonKey]resource.ValJson, len(s.resources))
 	for key, value := range s.resources {
 		result[key] = value
 	}
@@ -45,7 +44,7 @@ func (s *resourceStorage) SaveResource(key resource.Key, value resource.Value) e
 		return s.writeErr
 	}
 	if s.resources == nil {
-		s.resources = map[models.ValJsonKey]models.ValJson{}
+		s.resources = map[resource.ValJsonKey]resource.ValJson{}
 	}
 	value.CreatedAt = 10
 	value.UpdatedAt = 20
@@ -62,11 +61,11 @@ func (s *resourceStorage) DeleteResource(key resource.Key) error {
 }
 
 func TestService_FindResourcesUsesKeyAndTagMatching(t *testing.T) {
-	storage := &resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "alpha", Type: models.ORIGIN}:                      {Val: "one", Tag: []string{"work"}, CreatedAt: 1},
-		{Key: "beta", Type: models.ORIGIN}:                       {Val: "alpha in value", Tag: []string{"other"}, CreatedAt: 3},
-		{Key: "gamma", Type: models.ORIGIN}:                      {Val: "three", Tag: []string{"alpha-tag"}, CreatedAt: 2},
-		{Key: "alpha-tag", Type: models.TAG, OriginKey: "gamma"}: {Val: "gamma", CreatedAt: 4},
+	storage := &resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "alpha", Type: resource.ORIGIN}:                      {Val: "one", Tag: []string{"work"}, CreatedAt: 1},
+		{Key: "beta", Type: resource.ORIGIN}:                       {Val: "alpha in value", Tag: []string{"other"}, CreatedAt: 3},
+		{Key: "gamma", Type: resource.ORIGIN}:                      {Val: "three", Tag: []string{"alpha-tag"}, CreatedAt: 2},
+		{Key: "alpha-tag", Type: resource.TAG, OriginKey: "gamma"}: {Val: "gamma", CreatedAt: 4},
 	}}
 	service := NewService(storage)
 
@@ -82,9 +81,9 @@ func TestService_FindResourcesUsesKeyAndTagMatching(t *testing.T) {
 }
 
 func TestService_FindResourcesWithOptionsDefaultsToKeyAndCanIncludeValue(t *testing.T) {
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "alpha-key", Type: models.ORIGIN}: {Val: "first value"},
-		{Key: "beta-key", Type: models.ORIGIN}:  {Val: "alpha in value"},
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "alpha-key", Type: resource.ORIGIN}: {Val: "first value"},
+		{Key: "beta-key", Type: resource.ORIGIN}:  {Val: "alpha in value"},
 	}})
 
 	keyMatches, err := service.FindResourcesWithOptions("alpha", SearchOptions{})
@@ -98,8 +97,8 @@ func TestService_FindResourcesWithOptionsDefaultsToKeyAndCanIncludeValue(t *test
 }
 
 func TestService_FindResourcesWithOptionsCanIncludeTagsWithoutValue(t *testing.T) {
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "secret", Tag: []string{"production"}},
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "secret", Tag: []string{"production"}},
 	}})
 
 	matches, err := service.FindResourcesWithOptions("production", SearchOptions{IncludeTags: true})
@@ -109,9 +108,9 @@ func TestService_FindResourcesWithOptionsCanIncludeTagsWithoutValue(t *testing.T
 }
 
 func TestService_FindResourcesEmptyQueryListsOriginResources(t *testing.T) {
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "note", Type: models.ORIGIN}:                {Val: "value"},
-		{Key: "tag", Type: models.TAG, OriginKey: "note"}: {Val: "note"},
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "note", Type: resource.ORIGIN}:                {Val: "value"},
+		{Key: "tag", Type: resource.TAG, OriginKey: "note"}: {Val: "note"},
 	}})
 
 	matches, err := service.FindResources("")
@@ -121,7 +120,7 @@ func TestService_FindResourcesEmptyQueryListsOriginResources(t *testing.T) {
 }
 
 func TestService_FindResourcesReturnsTypedNotFound(t *testing.T) {
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{}})
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{}})
 
 	_, err := service.FindResources("missing")
 	if kind, ok := ErrorKindOf(err); !ok || kind != ErrorNotFound {
@@ -130,8 +129,8 @@ func TestService_FindResourcesReturnsTypedNotFound(t *testing.T) {
 }
 
 func TestService_CreateResourceRejectsDuplicate(t *testing.T) {
-	key := models.ValJsonKey{Key: "duplicate", Type: models.ORIGIN}
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{key: {Val: "old"}}})
+	key := resource.ValJsonKey{Key: "duplicate", Type: resource.ORIGIN}
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{key: {Val: "old"}}})
 
 	_, err := service.CreateResource("duplicate", "new", nil)
 	if kind, ok := ErrorKindOf(err); !ok || kind != ErrorConflict {
@@ -140,8 +139,8 @@ func TestService_CreateResourceRejectsDuplicate(t *testing.T) {
 }
 
 func TestService_UpdateResourceValuePreservesTags(t *testing.T) {
-	key := models.ValJsonKey{Key: "note", Type: models.ORIGIN}
-	storage := &resourceStorage{resources: map[models.ValJsonKey]models.ValJson{key: {Val: "old", Tag: []string{"work"}}}}
+	key := resource.ValJsonKey{Key: "note", Type: resource.ORIGIN}
+	storage := &resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{key: {Val: "old", Tag: []string{"work"}}}}
 	service := NewService(storage)
 
 	updated, err := service.UpdateResourceValue("note", "new")
@@ -158,7 +157,7 @@ func TestService_UpdateResourceValuePreservesTags(t *testing.T) {
 
 func TestService_CreateResourceWrapsStorageFailure(t *testing.T) {
 	writeErr := errors.New("disk full")
-	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{}, writeErr: writeErr})
+	service := NewService(&resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{}, writeErr: writeErr})
 
 	_, err := service.CreateResource("note", "value", nil)
 	if kind, ok := ErrorKindOf(err); !ok || kind != ErrorSystem || !errors.Is(err, writeErr) {
@@ -167,9 +166,9 @@ func TestService_CreateResourceWrapsStorageFailure(t *testing.T) {
 }
 
 func TestService_DeleteResourceReportsCleanupFailuresAndDeletes(t *testing.T) {
-	key := models.ValJsonKey{Key: "note", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "note", Type: resource.ORIGIN}
 	cleanupErr := errors.New("cleanup failed")
-	storage := &resourceStorage{resources: map[models.ValJsonKey]models.ValJson{key: {Val: "value"}}}
+	storage := &resourceStorage{resources: map[resource.ValJsonKey]resource.ValJson{key: {Val: "value"}}}
 	service := NewService(&deleteStorage{resourceStorage: storage, cleanupErr: cleanupErr})
 
 	result, err := service.DeleteResourceWithCleanup("note")

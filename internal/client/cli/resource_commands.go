@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
-	"ttl-cli/models"
-	"ttl-cli/util"
+	"ttl-cli/internal/core/resource"
+	"ttl-cli/internal/core/text"
+	"ttl-cli/internal/i18n"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ func newAddCommand(_ *options) *cobra.Command {
 				return err
 			}
 			if args[1] != "-" {
-				value = util.UnescapeString(value)
+				value = text.UnescapeString(value)
 			}
 			resource, err := serviceFromCommand(cmd).CreateResource(args[0], value, tags)
 			if err != nil {
@@ -254,7 +254,7 @@ func newUpdateCommand(_ *options) *cobra.Command {
 				return err
 			}
 			if args[1] != "-" {
-				value = util.UnescapeString(value)
+				value = text.UnescapeString(value)
 			}
 			debug, _ := cmd.Context().Value("debug").(bool)
 			service := serviceFromCommand(cmd)
@@ -430,7 +430,7 @@ func selectResource(cmd *cobra.Command, matches []clientapp.Resource) (clientapp
 	fmt.Fprintln(cmd.OutOrStdout(), i18n.T("command.get.multiple_matches"))
 	for index, match := range matches {
 		fmt.Fprintf(cmd.OutOrStdout(), "%d. ", index+1)
-		if match.Key.Type == models.ORIGIN {
+		if match.Key.Type == resource.ORIGIN {
 			fmt.Fprintln(cmd.OutOrStdout(), match.Key.Key)
 		} else {
 			fmt.Fprintf(cmd.OutOrStdout(), "%s "+i18n.T("command.get.tag_hint")+"\n", match.Key.OriginKey, match.Key.Key)

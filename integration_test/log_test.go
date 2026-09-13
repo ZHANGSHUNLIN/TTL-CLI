@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"ttl-cli/command"
-	"ttl-cli/db"
-	"ttl-cli/models"
+	command "ttl-cli/internal/client/cli/commands"
+	"ttl-cli/internal/core/resource"
 )
 
 func TestLogLifecycle(t *testing.T) {
@@ -18,32 +17,32 @@ func TestLogLifecycle(t *testing.T) {
 
 	now := time.Now()
 
-	record1 := models.LogRecord{
+	record1 := resource.LogRecord{
 		ID:        now.UnixNano(),
 		Content:   "完成用户模块重构",
 		Tags:      []string{"项目A"},
 		CreatedAt: now.Format("2006-01-02 15:04:05"),
 		Date:      now.Format("2006-01-02"),
 	}
-	if err := db.SaveLogRecord(record1); err != nil {
+	if err := testDB.SaveLogRecord(record1); err != nil {
 		t.Fatalf("SaveLogRecord(1) 失败: %v", err)
 	}
 
 	time.Sleep(time.Millisecond)
 	now2 := time.Now()
-	record2 := models.LogRecord{
+	record2 := resource.LogRecord{
 		ID:        now2.UnixNano(),
 		Content:   "修复登录接口 bug",
 		Tags:      []string{"项目B", "bugfix"},
 		CreatedAt: now2.Format("2006-01-02 15:04:05"),
 		Date:      now2.Format("2006-01-02"),
 	}
-	if err := db.SaveLogRecord(record2); err != nil {
+	if err := testDB.SaveLogRecord(record2); err != nil {
 		t.Fatalf("SaveLogRecord(2) 失败: %v", err)
 	}
 
 	today := now.Format("2006-01-02")
-	records, err := db.GetLogRecords(today, today)
+	records, err := testDB.GetLogRecords(today, today)
 	if err != nil {
 		t.Fatalf("GetLogRecords() 失败: %v", err)
 	}
@@ -54,11 +53,11 @@ func TestLogLifecycle(t *testing.T) {
 		t.Error("日志未按 ID 倒序排列")
 	}
 
-	if err := db.DeleteLogRecord(record1.ID); err != nil {
+	if err := testDB.DeleteLogRecord(record1.ID); err != nil {
 		t.Fatalf("DeleteLogRecord() 失败: %v", err)
 	}
 
-	records, err = db.GetLogRecords(today, today)
+	records, err = testDB.GetLogRecords(today, today)
 	if err != nil {
 		t.Fatalf("删除后 GetLogRecords() 失败: %v", err)
 	}
@@ -75,18 +74,18 @@ func TestLogWithTags(t *testing.T) {
 	defer cleanup()
 
 	now := time.Now()
-	record := models.LogRecord{
+	record := resource.LogRecord{
 		ID:        now.UnixNano(),
 		Content:   "需求评审",
 		Tags:      []string{"项目A", "会议", "需求"},
 		CreatedAt: now.Format("2006-01-02 15:04:05"),
 		Date:      now.Format("2006-01-02"),
 	}
-	if err := db.SaveLogRecord(record); err != nil {
+	if err := testDB.SaveLogRecord(record); err != nil {
 		t.Fatalf("SaveLogRecord() 失败: %v", err)
 	}
 
-	records, err := db.GetLogRecords(record.Date, record.Date)
+	records, err := testDB.GetLogRecords(record.Date, record.Date)
 	if err != nil {
 		t.Fatalf("GetLogRecords() 失败: %v", err)
 	}
@@ -111,19 +110,19 @@ func TestLogDateRangeFilter(t *testing.T) {
 
 	dates := []string{"2026-04-01", "2026-04-02", "2026-04-03"}
 	for i, date := range dates {
-		record := models.LogRecord{
+		record := resource.LogRecord{
 			ID:        time.Now().UnixNano() + int64(i),
 			Content:   "工作内容 " + date,
 			Tags:      nil,
 			CreatedAt: date + " 10:00:00",
 			Date:      date,
 		}
-		if err := db.SaveLogRecord(record); err != nil {
+		if err := testDB.SaveLogRecord(record); err != nil {
 			t.Fatalf("SaveLogRecord(%s) 失败: %v", date, err)
 		}
 	}
 
-	all, err := db.GetLogRecords("", "")
+	all, err := testDB.GetLogRecords("", "")
 	if err != nil {
 		t.Fatalf("GetLogRecords('','') 失败: %v", err)
 	}
@@ -131,7 +130,7 @@ func TestLogDateRangeFilter(t *testing.T) {
 		t.Errorf("全量日志数量 = %d, want 3", len(all))
 	}
 
-	day, err := db.GetLogRecords("2026-04-02", "2026-04-02")
+	day, err := testDB.GetLogRecords("2026-04-02", "2026-04-02")
 	if err != nil {
 		t.Fatalf("GetLogRecords(单日) 失败: %v", err)
 	}
@@ -142,7 +141,7 @@ func TestLogDateRangeFilter(t *testing.T) {
 		t.Errorf("单日日志日期 = %q, want 2026-04-02", day[0].Date)
 	}
 
-	rangeRecords, err := db.GetLogRecords("2026-04-01", "2026-04-02")
+	rangeRecords, err := testDB.GetLogRecords("2026-04-01", "2026-04-02")
 	if err != nil {
 		t.Fatalf("GetLogRecords(范围) 失败: %v", err)
 	}
@@ -150,7 +149,7 @@ func TestLogDateRangeFilter(t *testing.T) {
 		t.Errorf("范围日志数量 = %d, want 2", len(rangeRecords))
 	}
 
-	empty, err := db.GetLogRecords("2026-05-01", "2026-05-31")
+	empty, err := testDB.GetLogRecords("2026-05-01", "2026-05-31")
 	if err != nil {
 		t.Fatalf("GetLogRecords(空范围) 失败: %v", err)
 	}
@@ -163,7 +162,7 @@ func TestLogDeleteNotFound(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	err := db.DeleteLogRecord(999999)
+	err := testDB.DeleteLogRecord(999999)
 	if err == nil {
 		t.Error("删除不存在的日志应返回错误")
 	}
@@ -176,18 +175,18 @@ func TestLogExportCSV(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	record := models.LogRecord{
+	record := resource.LogRecord{
 		ID:        1234567890,
 		Content:   "完成接口联调",
 		Tags:      []string{"项目A", "后端"},
 		CreatedAt: "2026-04-04 14:30:00",
 		Date:      "2026-04-04",
 	}
-	if err := db.SaveLogRecord(record); err != nil {
+	if err := testDB.SaveLogRecord(record); err != nil {
 		t.Fatalf("SaveLogRecord() 失败: %v", err)
 	}
 
-	records, err := db.GetLogRecords("", "")
+	records, err := testDB.GetLogRecords("", "")
 	if err != nil {
 		t.Fatalf("GetLogRecords() 失败: %v", err)
 	}

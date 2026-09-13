@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
 	storagebbolt "ttl-cli/internal/storage/bbolt"
 	storagesqlite "ttl-cli/internal/storage/sqlite"
-	"ttl-cli/models"
 
 	"go.etcd.io/bbolt"
 )
@@ -34,8 +34,8 @@ func TestLocalStorage_UpdatePreservesResourceMetadata(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			storage := test.open(t)
-			key := models.ValJsonKey{Key: "note", Type: models.ORIGIN}
-			if err := storage.SaveResource(key, models.ValJson{Val: "before", Tag: []string{"work"}}); err != nil {
+			key := resource.ValJsonKey{Key: "note", Type: resource.ORIGIN}
+			if err := storage.SaveResource(key, resource.ValJson{Val: "before", Tag: []string{"work"}}); err != nil {
 				t.Fatalf("SaveResource() error = %v", err)
 			}
 			before, err := storage.GetAllResources()
@@ -216,7 +216,7 @@ func createLegacySQLiteFixture(t *testing.T, path string) {
 func assertLegacyStorageData(t *testing.T, storage corestorage.Storage) {
 	t.Helper()
 
-	key := models.ValJsonKey{Key: "legacy-resource", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "legacy-resource", Type: resource.ORIGIN}
 	resources, err := storage.GetAllResources()
 	if err != nil {
 		t.Fatalf("read legacy resources: %v", err)
@@ -228,7 +228,7 @@ func assertLegacyStorageData(t *testing.T, storage corestorage.Storage) {
 	if value.Val != "legacy-value" || !slices.Equal(value.Tag, []string{"legacy", "fixture"}) || value.CreatedAt != legacyTimestamp || value.UpdatedAt != legacyTimestamp {
 		t.Fatalf("legacy resource changed: %+v", value)
 	}
-	tagKey := models.ValJsonKey{Key: "legacy-tag", Type: models.TAG, OriginKey: key.Key}
+	tagKey := resource.ValJsonKey{Key: "legacy-tag", Type: resource.TAG, OriginKey: key.Key}
 	if tag, ok := resources[tagKey]; !ok || tag.Val != key.Key {
 		t.Fatalf("legacy tag resource changed: %+v", tag)
 	}

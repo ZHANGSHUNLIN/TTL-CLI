@@ -7,28 +7,28 @@ import (
 	"testing"
 
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
 
 	"github.com/spf13/cobra"
 )
 
 type getStorage struct {
 	corestorage.Storage
-	resources map[models.ValJsonKey]models.ValJson
+	resources map[resource.ValJsonKey]resource.ValJson
 }
 
 func (s *getStorage) Close() error { return nil }
 
-func (s *getStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
-	result := make(map[models.ValJsonKey]models.ValJson, len(s.resources))
+func (s *getStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
+	result := make(map[resource.ValJsonKey]resource.ValJson, len(s.resources))
 	for key, value := range s.resources {
 		result[key] = value
 	}
 	return result, nil
 }
 
-func (s *getStorage) SaveAuditRecord(models.AuditRecord) error { return nil }
+func (s *getStorage) SaveAuditRecord(resource.AuditRecord) error { return nil }
 
 func newGetTestCommand(storage *getStorage) (*cobra.Command, *bytes.Buffer, *bytes.Buffer) {
 	service := clientapp.NewService(storage)
@@ -43,8 +43,8 @@ func newGetTestCommand(storage *getStorage) (*cobra.Command, *bytes.Buffer, *byt
 }
 
 func TestGetCommand_DefaultDoesNotSearchValue(t *testing.T) {
-	storage := &getStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "contains-secret"},
+	storage := &getStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "contains-secret"},
 	}}
 	cmd, stdout, _ := newGetTestCommand(storage)
 	cmd.SetArgs([]string{"secret"})
@@ -57,8 +57,8 @@ func TestGetCommand_DefaultDoesNotSearchValue(t *testing.T) {
 }
 
 func TestGetCommand_DefaultSearchesKeyAndTags(t *testing.T) {
-	storage := &getStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "contains-secret", Tag: []string{"production"}},
+	storage := &getStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "contains-secret", Tag: []string{"production"}},
 	}}
 	cmd, stdout, _ := newGetTestCommand(storage)
 	cmd.SetArgs([]string{"production"})
@@ -71,8 +71,8 @@ func TestGetCommand_DefaultSearchesKeyAndTags(t *testing.T) {
 }
 
 func TestGetCommand_ValueFlagIncludesValueSearch(t *testing.T) {
-	storage := &getStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "contains-secret"},
+	storage := &getStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "contains-secret"},
 	}}
 	cmd, stdout, _ := newGetTestCommand(storage)
 	cmd.SetArgs([]string{"--value", "secret"})
@@ -88,8 +88,8 @@ func TestGetCommand_ValueFlagIncludesValueSearch(t *testing.T) {
 }
 
 func TestGetCommand_ValueFlagSupportsShortAliases(t *testing.T) {
-	storage := &getStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "contains-secret"},
+	storage := &getStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "contains-secret"},
 	}}
 	cmd, stdout, _ := newGetTestCommand(storage)
 	cmd.SetArgs([]string{"-v", "secret"})
@@ -105,8 +105,8 @@ func TestGetCommand_ValueFlagSupportsShortAliases(t *testing.T) {
 }
 
 func TestExecuteRoot_NormalizesGetValueAlias(t *testing.T) {
-	storage := &getStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "contains-secret"},
+	storage := &getStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "deployment-note", Type: resource.ORIGIN}: {Val: "contains-secret"},
 	}}
 	service := clientapp.NewService(storage)
 	opts := &options{service: service}

@@ -5,6 +5,13 @@ const (
 	Tag
 )
 
+// Legacy spellings are kept as names within the canonical resource package so
+// callers can migrate without changing the persisted representation.
+const (
+	ORIGIN = Origin
+	TAG    = Tag
+)
+
 const Version = "0.0.3"
 
 type Key struct {
@@ -70,3 +77,6 @@ const (
 	Ascending  SortOrder = "asc"
 	Descending SortOrder = "desc"
 )
+
+type ValJsonKey = Key
+type ValJson = Value

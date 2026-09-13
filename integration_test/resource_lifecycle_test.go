@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ttl-cli/db"
-	"ttl-cli/models"
-	"ttl-cli/util"
+	"ttl-cli/internal/core/resource"
+	"ttl-cli/internal/core/text"
 )
 
 func setupTempStorage(t *testing.T) func() {
@@ -27,13 +26,13 @@ func setupTempStorage(t *testing.T) func() {
 		t.Fatalf("写入临时配置文件失败: %v", err)
 	}
 
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("初始化临时存储失败: %v", err)
 	}
 
 	return func() {
-		_ = db.CloseDB()
+		_ = testDB.CloseDB()
 		_ = os.RemoveAll(tmpDir)
 	}
 }
@@ -42,14 +41,14 @@ func TestResourceLifecycle(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "github", Type: models.ORIGIN}
-	value := models.ValJson{Val: "https://github.com", Tag: []string{}}
+	key := resource.ValJsonKey{Key: "github", Type: resource.ORIGIN}
+	value := resource.ValJson{Val: "https://github.com", Tag: []string{}}
 
-	if err := db.SaveResource(key, value); err != nil {
+	if err := testDB.SaveResource(key, value); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
@@ -61,12 +60,12 @@ func TestResourceLifecycle(t *testing.T) {
 		t.Errorf("资源值不符: got %q, want %q", saved.Val, value.Val)
 	}
 
-	updated := models.ValJson{Val: "https://github.com/new", Tag: []string{"dev"}}
-	if err := db.UpdateResource(key, updated); err != nil {
+	updated := resource.ValJson{Val: "https://github.com/new", Tag: []string{"dev"}}
+	if err := testDB.UpdateResource(key, updated); err != nil {
 		t.Fatalf("UpdateResource() 失败: %v", err)
 	}
 
-	resources, err = db.GetAllResources()
+	resources, err = testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("更新后 GetAllResources() 失败: %v", err)
 	}
@@ -74,11 +73,11 @@ func TestResourceLifecycle(t *testing.T) {
 		t.Errorf("更新后值不符: got %q, want %q", resources[key].Val, updated.Val)
 	}
 
-	if err := db.DeleteResource(key); err != nil {
+	if err := testDB.DeleteResource(key); err != nil {
 		t.Fatalf("DeleteResource() 失败: %v", err)
 	}
 
-	resources, err = db.GetAllResources()
+	resources, err = testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("删除后 GetAllResources() 失败: %v", err)
 	}
@@ -91,21 +90,21 @@ func TestAuditLifecycle(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	if err := db.SaveResource(
-		models.ValJsonKey{Key: "my-note", Type: models.ORIGIN},
-		models.ValJson{Val: "some content", Tag: []string{}},
+	if err := testDB.SaveResource(
+		resource.ValJsonKey{Key: "my-note", Type: resource.ORIGIN},
+		resource.ValJson{Val: "some content", Tag: []string{}},
 	); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	if err := db.RecordAudit("my-note", "add"); err != nil {
+	if err := testDB.RecordAudit("my-note", "add"); err != nil {
 		t.Fatalf("RecordAudit(add) 失败: %v", err)
 	}
-	if err := db.RecordAudit("my-note", "get"); err != nil {
+	if err := testDB.RecordAudit("my-note", "get"); err != nil {
 		t.Fatalf("RecordAudit(get) 失败: %v", err)
 	}
 
-	stats, err := db.GetAuditStats()
+	stats, err := testDB.GetAuditStats()
 	if err != nil {
 		t.Fatalf("GetAuditStats() 失败: %v", err)
 	}
@@ -116,10 +115,10 @@ func TestAuditLifecycle(t *testing.T) {
 		t.Errorf("ByResource[my-note] = %d, want 2", stats.ByResource["my-note"])
 	}
 
-	if err := db.DeleteAuditRecords("my-note"); err != nil {
+	if err := testDB.DeleteAuditRecords("my-note"); err != nil {
 		t.Fatalf("DeleteAuditRecords() 失败: %v", err)
 	}
-	stats, err = db.GetAuditStats()
+	stats, err = testDB.GetAuditStats()
 	if err != nil {
 		t.Fatalf("删除后 GetAuditStats() 失败: %v", err)
 	}
@@ -132,14 +131,14 @@ func TestHistoryLifecycle(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	if err := db.RecordCommandHistory("add", "key-a", false); err != nil {
+	if err := testDB.RecordCommandHistory("add", "key-a", false); err != nil {
 		t.Fatalf("RecordCommandHistory(add) 失败: %v", err)
 	}
-	if err := db.RecordCommandHistory("get", "key-b", false); err != nil {
+	if err := testDB.RecordCommandHistory("get", "key-b", false); err != nil {
 		t.Fatalf("RecordCommandHistory(get) 失败: %v", err)
 	}
 
-	records, err := db.GetAllHistoryRecords()
+	records, err := testDB.GetAllHistoryRecords()
 	if err != nil {
 		t.Fatalf("GetAllHistoryRecords() 失败: %v", err)
 	}
@@ -150,10 +149,10 @@ func TestHistoryLifecycle(t *testing.T) {
 		t.Error("历史记录未按时间倒序排列")
 	}
 
-	if err := db.DeleteHistoryRecords("key-a"); err != nil {
+	if err := testDB.DeleteHistoryRecords("key-a"); err != nil {
 		t.Fatalf("DeleteHistoryRecords() 失败: %v", err)
 	}
-	records, err = db.GetAllHistoryRecords()
+	records, err = testDB.GetAllHistoryRecords()
 	if err != nil {
 		t.Fatalf("删除后 GetAllHistoryRecords() 失败: %v", err)
 	}
@@ -169,10 +168,10 @@ func TestStorageIsolation(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "isolation-check", Type: models.ORIGIN}
-	_ = db.SaveResource(key, models.ValJson{Val: "value", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "isolation-check", Type: resource.ORIGIN}
+	_ = testDB.SaveResource(key, resource.ValJson{Val: "value", Tag: []string{}})
 
-	resources, _ := db.GetAllResources()
+	resources, _ := testDB.GetAllResources()
 	if len(resources) != 1 {
 		t.Errorf("期望仅有 1 条资源，实际 %d 条（可能受其他测试污染）", len(resources))
 	}
@@ -182,27 +181,27 @@ func TestUpdatePreservesTags(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "mykey", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "mykey", Type: resource.ORIGIN}
 
-	if err := db.SaveResource(key, models.ValJson{Val: "v1", Tag: []string{}}); err != nil {
+	if err := testDB.SaveResource(key, resource.ValJson{Val: "v1", Tag: []string{}}); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	if err := db.UpdateResource(key, models.ValJson{Val: "v1", Tag: []string{"work", "important"}}); err != nil {
+	if err := testDB.UpdateResource(key, resource.ValJson{Val: "v1", Tag: []string{"work", "important"}}); err != nil {
 		t.Fatalf("UpdateResource(添加 tag) 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
 	existing := resources[key]
 
-	if err := db.UpdateResource(key, models.ValJson{Val: "v2", Tag: existing.Tag}); err != nil {
+	if err := testDB.UpdateResource(key, resource.ValJson{Val: "v2", Tag: existing.Tag}); err != nil {
 		t.Fatalf("UpdateResource(更新 val) 失败: %v", err)
 	}
 
-	resources, err = db.GetAllResources()
+	resources, err = testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("更新后 GetAllResources() 失败: %v", err)
 	}
@@ -227,13 +226,13 @@ func TestAddWithSingleTag(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "mykey", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "mykey", Type: resource.ORIGIN}
 
-	if err := db.SaveResource(key, models.ValJson{Val: "some value", Tag: []string{"dev"}}); err != nil {
+	if err := testDB.SaveResource(key, resource.ValJson{Val: "some value", Tag: []string{"dev"}}); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
@@ -253,14 +252,14 @@ func TestAddWithMultipleTags(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "mykey", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "mykey", Type: resource.ORIGIN}
 	tags := []string{"ops", "dev", "ci"}
 
-	if err := db.SaveResource(key, models.ValJson{Val: "some value", Tag: tags}); err != nil {
+	if err := testDB.SaveResource(key, resource.ValJson{Val: "some value", Tag: tags}); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
@@ -287,15 +286,15 @@ func TestAddWithDuplicateTags(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "mykey", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "mykey", Type: resource.ORIGIN}
 	inputTags := []string{"ops", "dev", "ops", "ci", "dev"}
-	dedupTags := util.RemoveDuplicates(inputTags)
+	dedupTags := text.RemoveDuplicates(inputTags)
 
-	if err := db.SaveResource(key, models.ValJson{Val: "some value", Tag: dedupTags}); err != nil {
+	if err := testDB.SaveResource(key, resource.ValJson{Val: "some value", Tag: dedupTags}); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
@@ -320,13 +319,13 @@ func TestAddWithEmptyTags(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	key := models.ValJsonKey{Key: "mykey", Type: models.ORIGIN}
+	key := resource.ValJsonKey{Key: "mykey", Type: resource.ORIGIN}
 
-	if err := db.SaveResource(key, models.ValJson{Val: "some value", Tag: []string{}}); err != nil {
+	if err := testDB.SaveResource(key, resource.ValJson{Val: "some value", Tag: []string{}}); err != nil {
 		t.Fatalf("SaveResource() 失败: %v", err)
 	}
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}

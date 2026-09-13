@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ttl-cli/crypto"
-	"ttl-cli/db"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
+	"ttl-cli/internal/crypto"
+	storagebbolt "ttl-cli/internal/storage/bbolt"
 )
 
 func TestEncryptionLifecycle(t *testing.T) {
@@ -24,10 +24,10 @@ func TestEncryptionLifecycle(t *testing.T) {
 		t.Fatalf("Failed to create config: %v", err)
 	}
 
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		t.Fatalf("Failed to init DB: %v", err)
 	}
-	defer db.CloseDB()
+	defer testDB.CloseDB()
 
 	resources := []struct {
 		key   string
@@ -39,14 +39,14 @@ func TestEncryptionLifecycle(t *testing.T) {
 	}
 
 	for _, r := range resources {
-		key := models.ValJsonKey{Key: r.key, Type: models.ORIGIN}
-		value := models.ValJson{Val: r.value, Tag: []string{"test"}}
-		if err := db.SaveResource(key, value); err != nil {
+		key := resource.ValJsonKey{Key: r.key, Type: resource.ORIGIN}
+		value := resource.ValJson{Val: r.value, Tag: []string{"test"}}
+		if err := testDB.SaveResource(key, value); err != nil {
 			t.Fatalf("Failed to save resource %s: %v", r.key, err)
 		}
 	}
 
-	allResources, err := db.GetAllResources()
+	allResources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("Failed to get resources: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestEncryptionLifecycle(t *testing.T) {
 	}
 
 	for _, r := range resources {
-		key := models.ValJsonKey{Key: r.key, Type: models.ORIGIN}
+		key := resource.ValJsonKey{Key: r.key, Type: resource.ORIGIN}
 		val, exists := allResources[key]
 		if !exists {
 			t.Errorf("Resource %s not found", r.key)
@@ -67,17 +67,17 @@ func TestEncryptionLifecycle(t *testing.T) {
 		}
 	}
 
-	ls, ok := db.Stor.(*db.LocalStorage)
+	ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage")
 	}
 
-	db.CloseDB()
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	testDB.CloseDB()
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		t.Fatalf("Failed to re-init DB: %v", err)
 	}
 
-	ls, ok = db.Stor.(*db.LocalStorage)
+	ls, ok = testDB.Stor.(*storagebbolt.LocalStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage after re-init")
 	}
@@ -86,19 +86,19 @@ func TestEncryptionLifecycle(t *testing.T) {
 		t.Fatalf("Failed to enable encryption: %v", err)
 	}
 
-	db.CloseDB()
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	testDB.CloseDB()
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		t.Fatalf("Failed to re-init DB: %v", err)
 	}
-	defer db.CloseDB()
+	defer testDB.CloseDB()
 
-	encryptedResources, err := db.GetAllResources()
+	encryptedResources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("Failed to get encrypted resources: %v", err)
 	}
 
 	for _, r := range resources {
-		key := models.ValJsonKey{Key: r.key, Type: models.ORIGIN}
+		key := resource.ValJsonKey{Key: r.key, Type: resource.ORIGIN}
 		val, exists := encryptedResources[key]
 		if !exists {
 			t.Errorf("Encrypted resource %s not found", r.key)
@@ -109,13 +109,13 @@ func TestEncryptionLifecycle(t *testing.T) {
 		}
 	}
 
-	rawDB, err := db.GetDBPath(confPath, "local")
+	rawDB, err := storagebbolt.GetDBPath(confPath, "local")
 	if err != nil {
 		t.Fatalf("Failed to get DB path: %v", err)
 	}
 	_ = rawDB
 
-	ls2, ok := db.Stor.(*db.LocalStorage)
+	ls2, ok := testDB.Stor.(*storagebbolt.LocalStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage after re-init")
 	}
@@ -124,19 +124,19 @@ func TestEncryptionLifecycle(t *testing.T) {
 		t.Fatalf("Failed to disable encryption: %v", err)
 	}
 
-	db.CloseDB()
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	testDB.CloseDB()
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		t.Fatalf("Failed to re-init DB: %v", err)
 	}
-	defer db.CloseDB()
+	defer testDB.CloseDB()
 
-	plainResources, err := db.GetAllResources()
+	plainResources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("Failed to get plain resources: %v", err)
 	}
 
 	for _, r := range resources {
-		key := models.ValJsonKey{Key: r.key, Type: models.ORIGIN}
+		key := resource.ValJsonKey{Key: r.key, Type: resource.ORIGIN}
 		val, exists := plainResources[key]
 		if !exists {
 			t.Errorf("Plain resource %s not found", r.key)
@@ -265,18 +265,18 @@ func TestEncryptionCommands(t *testing.T) {
 	}
 
 	t.Run("encrypt command", func(t *testing.T) {
-		if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+		if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 			t.Fatalf("Failed to init DB: %v", err)
 		}
-		defer db.CloseDB()
+		defer testDB.CloseDB()
 
-		key := models.ValJsonKey{Key: "test", Type: models.ORIGIN}
-		value := models.ValJson{Val: "sensitive data", Tag: []string{}}
-		if err := db.SaveResource(key, value); err != nil {
+		key := resource.ValJsonKey{Key: "test", Type: resource.ORIGIN}
+		value := resource.ValJson{Val: "sensitive data", Tag: []string{}}
+		if err := testDB.SaveResource(key, value); err != nil {
 			t.Fatalf("Failed to save resource: %v", err)
 		}
 
-		ls, ok := db.Stor.(*db.LocalStorage)
+		ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
 		if !ok {
 			t.Fatal("Expected LocalStorage")
 		}
@@ -285,7 +285,7 @@ func TestEncryptionCommands(t *testing.T) {
 			t.Fatalf("EnableEncryption failed: %v", err)
 		}
 
-		all, err := db.GetAllResources()
+		all, err := testDB.GetAllResources()
 		if err != nil {
 			t.Fatalf("GetAllResources failed: %v", err)
 		}
@@ -297,12 +297,12 @@ func TestEncryptionCommands(t *testing.T) {
 	})
 
 	t.Run("decrypt command", func(t *testing.T) {
-		if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+		if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 			t.Fatalf("Failed to init DB: %v", err)
 		}
-		defer db.CloseDB()
+		defer testDB.CloseDB()
 
-		ls, ok := db.Stor.(*db.LocalStorage)
+		ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
 		if !ok {
 			t.Fatal("Expected LocalStorage")
 		}

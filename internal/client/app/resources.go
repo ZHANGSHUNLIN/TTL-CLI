@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"ttl-cli/models"
-	"ttl-cli/util"
+	"ttl-cli/internal/core/resource"
+	"ttl-cli/internal/core/text"
 )
 
 // ErrorKind identifies client-service failures without coupling callers to
@@ -61,8 +61,8 @@ func ErrorKindOf(err error) (ErrorKind, bool) {
 
 // Resource pairs a canonical resource key with its value.
 type Resource struct {
-	Key   models.ValJsonKey
-	Value models.ValJson
+	Key   resource.ValJsonKey
+	Value resource.ValJson
 }
 
 // ListResources returns origin resources in a deterministic order.
@@ -74,7 +74,7 @@ func (s *Service) ListResources() ([]Resource, error) {
 
 	result := make([]Resource, 0, len(resources))
 	for key, value := range resources {
-		if key.Type == models.ORIGIN {
+		if key.Type == resource.ORIGIN {
 			result = append(result, Resource{Key: key, Value: value})
 		}
 	}
@@ -106,16 +106,16 @@ func (s *Service) FindResourcesWithOptions(query string, options SearchOptions) 
 
 	result := make([]Resource, 0)
 	for key, value := range resources {
-		if key.Type != models.ORIGIN {
+		if key.Type != resource.ORIGIN {
 			continue
 		}
-		matched := util.ContainsIgnoreCase(key.Key, query)
+		matched := text.ContainsIgnoreCase(key.Key, query)
 		if !matched && options.IncludeValue {
-			matched = util.ContainsIgnoreCase(value.Val, query)
+			matched = text.ContainsIgnoreCase(value.Val, query)
 		}
 		if !matched && options.IncludeTags {
 			for _, tag := range value.Tag {
-				if util.ContainsIgnoreCase(tag, query) {
+				if text.ContainsIgnoreCase(tag, query) {
 					matched = true
 					break
 				}
@@ -135,7 +135,7 @@ func (s *Service) FindResourcesWithOptions(query string, options SearchOptions) 
 
 // CreateResource creates one origin resource and rejects duplicate keys.
 func (s *Service) CreateResource(key, value string, tags []string) (Resource, error) {
-	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	resourceKey := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := s.GetAllResources()
 	if err != nil {
 		return Resource{}, systemError(ErrorRead, "failed to read resources", err)
@@ -144,7 +144,7 @@ func (s *Service) CreateResource(key, value string, tags []string) (Resource, er
 		return Resource{}, &ServiceError{Kind: ErrorConflict, Message: fmt.Sprintf("resource already exists: %s", key)}
 	}
 
-	if err := s.SaveResource(resourceKey, models.ValJson{Val: value, Tag: util.RemoveDuplicates(tags)}); err != nil {
+	if err := s.SaveResource(resourceKey, resource.ValJson{Val: value, Tag: text.RemoveDuplicates(tags)}); err != nil {
 		return Resource{}, systemError(ErrorSave, "failed to save resource", err)
 	}
 	return s.resourceByKey(resourceKey)
@@ -152,12 +152,12 @@ func (s *Service) CreateResource(key, value string, tags []string) (Resource, er
 
 // UpdateResourceValue updates a resource value while preserving its tags.
 func (s *Service) UpdateResourceValue(key, value string) (Resource, error) {
-	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	resourceKey := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	existing, err := s.resourceByKey(resourceKey)
 	if err != nil {
 		return Resource{}, err
 	}
-	if err := s.UpdateResource(resourceKey, models.ValJson{
+	if err := s.UpdateResource(resourceKey, resource.ValJson{
 		Val:       value,
 		Tag:       existing.Value.Tag,
 		CreatedAt: existing.Value.CreatedAt,
@@ -169,12 +169,12 @@ func (s *Service) UpdateResourceValue(key, value string) (Resource, error) {
 
 // AddResourceTags adds tags without duplicates.
 func (s *Service) AddResourceTags(key string, tags []string) (Resource, error) {
-	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	resourceKey := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	existing, err := s.resourceByKey(resourceKey)
 	if err != nil {
 		return Resource{}, err
 	}
-	existing.Value.Tag = util.RemoveDuplicates(append(existing.Value.Tag, tags...))
+	existing.Value.Tag = text.RemoveDuplicates(append(existing.Value.Tag, tags...))
 	if err := s.SaveResource(resourceKey, existing.Value); err != nil {
 		return Resource{}, systemError(ErrorSave, "failed to save resource tags", err)
 	}
@@ -183,7 +183,7 @@ func (s *Service) AddResourceTags(key string, tags []string) (Resource, error) {
 
 // DeleteResourceTag removes all occurrences of one tag.
 func (s *Service) DeleteResourceTag(key, tag string) (Resource, error) {
-	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	resourceKey := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	existing, err := s.resourceByKey(resourceKey)
 	if err != nil {
 		return Resource{}, err
@@ -209,7 +209,7 @@ type DeleteResult struct {
 
 // DeleteResourceWithCleanup deletes one origin resource after best-effort auxiliary cleanup.
 func (s *Service) DeleteResourceWithCleanup(key string) (DeleteResult, error) {
-	resourceKey := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	resourceKey := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	if _, err := s.resourceByKey(resourceKey); err != nil {
 		return DeleteResult{}, err
 	}
@@ -222,10 +222,10 @@ func (s *Service) DeleteResourceWithCleanup(key string) (DeleteResult, error) {
 
 // GetResource returns one origin resource by exact key.
 func (s *Service) GetResource(key string) (Resource, error) {
-	return s.resourceByKey(models.ValJsonKey{Key: key, Type: models.ORIGIN})
+	return s.resourceByKey(resource.ValJsonKey{Key: key, Type: resource.ORIGIN})
 }
 
-func (s *Service) resourceByKey(key models.ValJsonKey) (Resource, error) {
+func (s *Service) resourceByKey(key resource.ValJsonKey) (Resource, error) {
 	resources, err := s.GetAllResources()
 	if err != nil {
 		return Resource{}, systemError(ErrorRead, "failed to read resources", err)
@@ -250,8 +250,8 @@ func sortResources(resources []Resource) {
 	})
 }
 
-func displayKey(key models.ValJsonKey) string {
-	if key.Type == models.TAG && key.OriginKey != "" {
+func displayKey(key resource.ValJsonKey) string {
+	if key.Type == resource.TAG && key.OriginKey != "" {
 		return key.OriginKey
 	}
 	return key.Key

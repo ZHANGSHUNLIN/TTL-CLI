@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"ttl-cli/crypto"
+	"ttl-cli/internal/crypto"
 )
 
 func TestMain(m *testing.M) {

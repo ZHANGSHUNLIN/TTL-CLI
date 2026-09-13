@@ -10,15 +10,15 @@ import (
 	"strconv"
 	"strings"
 
-	"ttl-cli/command"
-	"ttl-cli/conf"
-	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/client/cli/commands"
 	"ttl-cli/internal/client/remote"
+	ttlsync "ttl-cli/internal/client/sync"
 	clienttui "ttl-cli/internal/client/tui"
+	"ttl-cli/internal/config"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
-	ttlsync "ttl-cli/sync"
+	"ttl-cli/internal/i18n"
 
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
@@ -74,32 +74,32 @@ func newRootCommand(opts *options) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.confFile, "conf", "", i18n.T("root.flag_conf"))
 
 	root.AddCommand(
-		command.InitCmd,
+		commands.InitCmd,
 		newAddCommand(opts),
 		newGetCommand(opts),
 		newPickCommand(opts),
-		command.OpenCmd,
+		commands.OpenCmd,
 		newUpdateCommand(opts),
 		newDeleteCommand(opts),
 		newTagCommand(opts),
 		newDeleteTagCommand(opts),
-		command.TagsCmd,
-		command.RenameCmd,
-		command.ConfigCmd,
-		command.VersionCmd,
-		command.EncryptCmd,
-		command.DecryptCmd,
-		command.KeyCmd,
+		commands.TagsCmd,
+		commands.RenameCmd,
+		commands.ConfigCmd,
+		commands.VersionCmd,
+		commands.EncryptCmd,
+		commands.DecryptCmd,
+		commands.KeyCmd,
 		newMigrateCommand(opts),
-		command.AuditCmd,
-		command.HistoryCmd,
-		command.ExportCmd,
-		command.ImportCmd,
-		command.LogCmd,
+		commands.AuditCmd,
+		commands.HistoryCmd,
+		commands.ExportCmd,
+		commands.ImportCmd,
+		commands.LogCmd,
 		newSyncCommand(opts),
 		newUICommand(opts),
-		command.WorkspaceCmd,
-		command.WsCmd,
+		commands.WorkspaceCmd,
+		commands.WsCmd,
 	)
 
 	root.PersistentPreRunE = newPreRun(opts)
@@ -289,7 +289,7 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 		if !skipDBInit {
 			actualStorageType := opts.storageType
 			if opts.storageType == "sqlite" && !cmd.Flags().Changed("storage") {
-				ttlConf, err := conf.GetTtlConfFromFile(opts.confFile)
+				ttlConf, err := config.GetTtlConfFromFile(opts.confFile)
 				if err == nil {
 					if ttlConf.Workspace != "" {
 						if ws, ok := ttlConf.Workspaces[ttlConf.Workspace]; ok && ws.StorageType != "" {
@@ -498,7 +498,7 @@ func replaceSpecialValuesFromHistory(cmd *cobra.Command, service *clientapp.Serv
 	}
 	charsCount := countSpecialChars(args[0])
 	if charsCount > 0 {
-		record, err := service.GetHistoryRecord(charsCount-1, models.Descending)
+		record, err := service.GetHistoryRecord(charsCount-1, resource.Descending)
 		if err != nil {
 			if !modeFromCommand(cmd).json {
 				fmt.Fprintf(cmd.OutOrStdout(), i18n.T("error.get_history"), err)

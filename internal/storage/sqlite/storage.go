@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"sort"
 	"time"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
 	storagebbolt "ttl-cli/internal/storage/bbolt"
-	"ttl-cli/models"
 
 	_ "modernc.org/sqlite"
 )
@@ -133,8 +133,8 @@ func (s *SQLiteStorage) Close() error {
 	return nil
 }
 
-func (s *SQLiteStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
-	resources := make(map[models.ValJsonKey]models.ValJson)
+func (s *SQLiteStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
+	resources := make(map[resource.ValJsonKey]resource.ValJson)
 
 	rows, err := s.db.Query("SELECT key, type, origin_key, value, tags, created_at, updated_at FROM resources ORDER BY created_at DESC")
 	if err != nil {
@@ -156,18 +156,18 @@ func (s *SQLiteStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson,
 			}
 		}
 
-		keyType := models.ORIGIN
+		keyType := resource.ORIGIN
 		if typ == "TAG" {
-			keyType = models.TAG
+			keyType = resource.TAG
 		}
 
-		vjk := models.ValJsonKey{
+		vjk := resource.ValJsonKey{
 			Key:       key,
 			Type:      keyType,
 			OriginKey: originKey,
 		}
 
-		resources[vjk] = models.ValJson{
+		resources[vjk] = resource.ValJson{
 			Val:       value,
 			Tag:       tags,
 			CreatedAt: createdAt,
@@ -178,9 +178,9 @@ func (s *SQLiteStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson,
 	return resources, nil
 }
 
-func (s *SQLiteStorage) SaveResource(key models.ValJsonKey, value models.ValJson) error {
+func (s *SQLiteStorage) SaveResource(key resource.ValJsonKey, value resource.ValJson) error {
 	typ := "ORIGIN"
-	if key.Type == models.TAG {
+	if key.Type == resource.TAG {
 		typ = "TAG"
 	}
 
@@ -218,9 +218,9 @@ func (s *SQLiteStorage) SaveResource(key models.ValJsonKey, value models.ValJson
 	return nil
 }
 
-func (s *SQLiteStorage) DeleteResource(key models.ValJsonKey) error {
+func (s *SQLiteStorage) DeleteResource(key resource.ValJsonKey) error {
 	typ := "ORIGIN"
-	if key.Type == models.TAG {
+	if key.Type == resource.TAG {
 		typ = "TAG"
 	}
 
@@ -235,20 +235,20 @@ func (s *SQLiteStorage) DeleteResource(key models.ValJsonKey) error {
 	return nil
 }
 
-func (s *SQLiteStorage) UpdateResource(key models.ValJsonKey, newValue models.ValJson) error {
+func (s *SQLiteStorage) UpdateResource(key resource.ValJsonKey, newValue resource.ValJson) error {
 	return s.SaveResource(key, newValue)
 }
 
-func (s *SQLiteStorage) GetTagStats() ([]models.TagStat, error) {
+func (s *SQLiteStorage) GetTagStats() ([]resource.TagStat, error) {
 	resources, err := s.GetAllResources()
 	if err != nil {
 		return nil, err
 	}
 
-	tagMap := make(map[string]models.TagStat)
+	tagMap := make(map[string]resource.TagStat)
 
 	for key, val := range resources {
-		if key.Type != models.ORIGIN {
+		if key.Type != resource.ORIGIN {
 			continue
 		}
 
@@ -258,7 +258,7 @@ func (s *SQLiteStorage) GetTagStats() ([]models.TagStat, error) {
 				stat.ResourceKeys = append(stat.ResourceKeys, key.Key)
 				tagMap[tag] = stat
 			} else {
-				tagMap[tag] = models.TagStat{
+				tagMap[tag] = resource.TagStat{
 					Tag:          tag,
 					Count:        1,
 					ResourceKeys: []string{key.Key},
@@ -267,7 +267,7 @@ func (s *SQLiteStorage) GetTagStats() ([]models.TagStat, error) {
 		}
 	}
 
-	stats := make([]models.TagStat, 0, len(tagMap))
+	stats := make([]resource.TagStat, 0, len(tagMap))
 	for _, stat := range tagMap {
 		stats = append(stats, stat)
 	}
@@ -279,7 +279,7 @@ func (s *SQLiteStorage) GetTagStats() ([]models.TagStat, error) {
 	return stats, nil
 }
 
-func (s *SQLiteStorage) SaveAuditRecord(record models.AuditRecord) error {
+func (s *SQLiteStorage) SaveAuditRecord(record resource.AuditRecord) error {
 	_, err := s.db.Exec(
 		`INSERT INTO audit (resource_key, operation, timestamp, count) VALUES (?, ?, ?, ?)`,
 		record.ResourceKey, record.Operation, record.Timestamp, record.Count,
@@ -290,8 +290,8 @@ func (s *SQLiteStorage) SaveAuditRecord(record models.AuditRecord) error {
 	return nil
 }
 
-func (s *SQLiteStorage) GetAuditStats() (models.AuditStats, error) {
-	stats := models.AuditStats{
+func (s *SQLiteStorage) GetAuditStats() (resource.AuditStats, error) {
+	stats := resource.AuditStats{
 		ByOperation: make(map[string]int),
 		ByResource:  make(map[string]int),
 	}
@@ -317,8 +317,8 @@ func (s *SQLiteStorage) GetAuditStats() (models.AuditStats, error) {
 	return stats, nil
 }
 
-func (s *SQLiteStorage) GetAllAuditRecords() ([]models.AuditRecord, error) {
-	var records []models.AuditRecord
+func (s *SQLiteStorage) GetAllAuditRecords() ([]resource.AuditRecord, error) {
+	var records []resource.AuditRecord
 
 	rows, err := s.db.Query("SELECT resource_key, operation, timestamp, count FROM audit ORDER BY timestamp DESC")
 	if err != nil {
@@ -327,7 +327,7 @@ func (s *SQLiteStorage) GetAllAuditRecords() ([]models.AuditRecord, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var record models.AuditRecord
+		var record resource.AuditRecord
 		if err := rows.Scan(&record.ResourceKey, &record.Operation, &record.Timestamp, &record.Count); err != nil {
 			return nil, fmt.Errorf("扫描审计行失败: %w", err)
 		}
@@ -345,7 +345,7 @@ func (s *SQLiteStorage) DeleteAuditRecords(resourceKey string) error {
 	return nil
 }
 
-func (s *SQLiteStorage) SaveHistoryRecord(record models.HistoryRecord) error {
+func (s *SQLiteStorage) SaveHistoryRecord(record resource.HistoryRecord) error {
 	_, err := s.db.Exec(
 		`INSERT INTO history (id, resource_key, operation, timestamp, time_str, command) VALUES (?, ?, ?, ?, ?, ?)`,
 		record.ID, record.ResourceKey, record.Operation, record.Timestamp, record.TimeStr, record.Command,
@@ -356,8 +356,8 @@ func (s *SQLiteStorage) SaveHistoryRecord(record models.HistoryRecord) error {
 	return nil
 }
 
-func (s *SQLiteStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
-	var records []models.HistoryRecord
+func (s *SQLiteStorage) GetAllHistoryRecords() ([]resource.HistoryRecord, error) {
+	var records []resource.HistoryRecord
 
 	rows, err := s.db.Query(`SELECT id, resource_key, operation, timestamp, time_str, command FROM history ORDER BY timestamp DESC`)
 	if err != nil {
@@ -366,7 +366,7 @@ func (s *SQLiteStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var record models.HistoryRecord
+		var record resource.HistoryRecord
 		if err := rows.Scan(&record.ID, &record.ResourceKey, &record.Operation, &record.Timestamp, &record.TimeStr, &record.Command); err != nil {
 			return nil, fmt.Errorf("扫描历史行失败: %w", err)
 		}
@@ -376,15 +376,15 @@ func (s *SQLiteStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
 	return records, nil
 }
 
-func (s *SQLiteStorage) GetHistoryRecord(index int, order models.SortOrder) (models.HistoryRecord, error) {
+func (s *SQLiteStorage) GetHistoryRecord(index int, order resource.SortOrder) (resource.HistoryRecord, error) {
 	var orderBy string
-	if order == models.Descending {
+	if order == resource.Descending {
 		orderBy = "timestamp DESC"
 	} else {
 		orderBy = "timestamp ASC"
 	}
 
-	var record models.HistoryRecord
+	var record resource.HistoryRecord
 	err := s.db.QueryRow(`
 		SELECT id, resource_key, operation, timestamp, time_str, command
 		FROM history
@@ -394,16 +394,16 @@ func (s *SQLiteStorage) GetHistoryRecord(index int, order models.SortOrder) (mod
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return models.HistoryRecord{}, fmt.Errorf("index %d out of bounds", index)
+			return resource.HistoryRecord{}, fmt.Errorf("index %d out of bounds", index)
 		}
-		return models.HistoryRecord{}, fmt.Errorf("查询历史记录失败: %w", err)
+		return resource.HistoryRecord{}, fmt.Errorf("查询历史记录失败: %w", err)
 	}
 
 	return record, nil
 }
 
-func (s *SQLiteStorage) GetHistoryStats() (models.HistoryStats, error) {
-	stats := models.HistoryStats{
+func (s *SQLiteStorage) GetHistoryStats() (resource.HistoryStats, error) {
+	stats := resource.HistoryStats{
 		ByOperation: make(map[string]int),
 		ByResource:  make(map[string]int),
 	}
@@ -432,7 +432,7 @@ func (s *SQLiteStorage) DeleteHistoryRecords(resourceKey string) error {
 	return nil
 }
 
-func (s *SQLiteStorage) SaveLogRecord(record models.LogRecord) error {
+func (s *SQLiteStorage) SaveLogRecord(record resource.LogRecord) error {
 	tagsJSON, err := json.Marshal(record.Tags)
 	if err != nil {
 		return fmt.Errorf("序列化标签失败: %w", err)
@@ -448,8 +448,8 @@ func (s *SQLiteStorage) SaveLogRecord(record models.LogRecord) error {
 	return nil
 }
 
-func (s *SQLiteStorage) GetLogRecords(startDate, endDate string) ([]models.LogRecord, error) {
-	var records []models.LogRecord
+func (s *SQLiteStorage) GetLogRecords(startDate, endDate string) ([]resource.LogRecord, error) {
+	var records []resource.LogRecord
 
 	query := `SELECT id, content, tags, created_at, date FROM logs WHERE 1=1`
 	args := []interface{}{}
@@ -472,7 +472,7 @@ func (s *SQLiteStorage) GetLogRecords(startDate, endDate string) ([]models.LogRe
 	defer rows.Close()
 
 	for rows.Next() {
-		var record models.LogRecord
+		var record resource.LogRecord
 		var tagsStr string
 		if err := rows.Scan(&record.ID, &record.Content, &tagsStr, &record.CreatedAt, &record.Date); err != nil {
 			return nil, fmt.Errorf("扫描日志行失败: %w", err)

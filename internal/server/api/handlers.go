@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
-	"ttl-cli/util"
+	"ttl-cli/internal/core/text"
 )
 
 func storageFrom(r *http.Request) corestorage.Storage {
@@ -141,14 +141,14 @@ func handleGetResources(w http.ResponseWriter, r *http.Request) {
 
 	var result []ResourceDTO
 	for k, v := range resources {
-		if k.Type != models.ORIGIN {
+		if k.Type != resource.ORIGIN {
 			continue
 		}
 		if keyword != "" {
-			matched := util.ContainsIgnoreCase(k.Key, keyword)
+			matched := text.ContainsIgnoreCase(k.Key, keyword)
 			if !matched {
 				for _, tag := range v.Tag {
-					if util.ContainsIgnoreCase(tag, keyword) {
+					if text.ContainsIgnoreCase(tag, keyword) {
 						matched = true
 						break
 					}
@@ -182,7 +182,7 @@ func handleCreateResource(w http.ResponseWriter, r *http.Request) {
 	if stor == nil {
 		return
 	}
-	vjk := models.ValJsonKey{Key: req.Key, Type: models.ORIGIN}
+	vjk := resource.ValJsonKey{Key: req.Key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
@@ -193,13 +193,13 @@ func handleCreateResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := util.UnescapeString(req.Value)
-	newResource := models.ValJson{Val: value, Tag: []string{}}
+	value := text.UnescapeString(req.Value)
+	newResource := resource.ValJson{Val: value, Tag: []string{}}
 	if err := stor.SaveResource(vjk, newResource); err != nil {
 		writeSysError(w, "failed to save resource: "+err.Error())
 		return
 	}
-	_ = stor.SaveAuditRecord(models.AuditRecord{
+	_ = stor.SaveAuditRecord(resource.AuditRecord{
 		ResourceKey: req.Key,
 		Operation:   "add",
 		Timestamp:   time.Now().Unix(),
@@ -220,7 +220,7 @@ func handleUpdateResource(w http.ResponseWriter, r *http.Request, key string) {
 	if stor == nil {
 		return
 	}
-	vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	vjk := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
@@ -232,13 +232,13 @@ func handleUpdateResource(w http.ResponseWriter, r *http.Request, key string) {
 		return
 	}
 
-	value := util.UnescapeString(req.Value)
-	updated := models.ValJson{Val: value, Tag: existing.Tag}
+	value := text.UnescapeString(req.Value)
+	updated := resource.ValJson{Val: value, Tag: existing.Tag}
 	if err := stor.UpdateResource(vjk, updated); err != nil {
 		writeSysError(w, "failed to update resource: "+err.Error())
 		return
 	}
-	_ = stor.SaveAuditRecord(models.AuditRecord{
+	_ = stor.SaveAuditRecord(resource.AuditRecord{
 		ResourceKey: key,
 		Operation:   "update",
 		Timestamp:   time.Now().Unix(),
@@ -253,7 +253,7 @@ func handleDeleteResource(w http.ResponseWriter, r *http.Request, key string) {
 	if stor == nil {
 		return
 	}
-	vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	vjk := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
@@ -290,7 +290,7 @@ func handleAddTags(w http.ResponseWriter, r *http.Request, key string) {
 	if stor == nil {
 		return
 	}
-	vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	vjk := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
@@ -303,7 +303,7 @@ func handleAddTags(w http.ResponseWriter, r *http.Request, key string) {
 	}
 
 	newTags := append(resource.Tag, req.Tags...)
-	resource.Tag = util.RemoveDuplicates(newTags)
+	resource.Tag = text.RemoveDuplicates(newTags)
 	if err := stor.SaveResource(vjk, resource); err != nil {
 		writeSysError(w, "failed to save resource: "+err.Error())
 		return
@@ -317,7 +317,7 @@ func handleDeleteTag(w http.ResponseWriter, r *http.Request, key, tag string) {
 	if stor == nil {
 		return
 	}
-	vjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	vjk := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
@@ -359,13 +359,13 @@ func handleRenameResource(w http.ResponseWriter, r *http.Request, key string) {
 	if stor == nil {
 		return
 	}
-	oldVjk := models.ValJsonKey{Key: key, Type: models.ORIGIN}
+	oldVjk := resource.ValJsonKey{Key: key, Type: resource.ORIGIN}
 	resources, err := stor.GetAllResources()
 	if err != nil {
 		writeSysError(w, "failed to get resources: "+err.Error())
 		return
 	}
-	resource, exists := resources[oldVjk]
+	value, exists := resources[oldVjk]
 	if !exists {
 		writeNotFound(w, "resource not found: "+key)
 		return
@@ -376,11 +376,11 @@ func handleRenameResource(w http.ResponseWriter, r *http.Request, key string) {
 		return
 	}
 
-	newVjk := models.ValJsonKey{Key: req.NewKey, Type: models.ORIGIN}
-	if err := stor.SaveResource(newVjk, resource); err != nil {
+	newVjk := resource.ValJsonKey{Key: req.NewKey, Type: resource.ORIGIN}
+	if err := stor.SaveResource(newVjk, value); err != nil {
 		writeSysError(w, "failed to save new resource: "+err.Error())
 		return
 	}
 
-	writeSuccess(w, ResourceDTO{Key: req.NewKey, Value: resource.Val, Tags: resource.Tag})
+	writeSuccess(w, ResourceDTO{Key: req.NewKey, Value: value.Val, Tags: value.Tag})
 }

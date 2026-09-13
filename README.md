@@ -162,6 +162,9 @@ ttl-server user add --id alice --name Alice
 ttl-server serve --port 8080
 ```
 
+独立服务端制品、权限、健康检查、TLS 边界和升级回滚流程见
+[`docs/server-deployment.md`](docs/server-deployment.md)。
+
 ### Sync Your Data
 
 ```bash
@@ -220,19 +223,20 @@ ttl export --format json --output backup.json
 
 ```
 ttl-cli/
-├── main.go                 # Compatible root build for the ttl client
 ├── cmd/ttl/                # Canonical local client entry point
 ├── cmd/ttl-server/         # Standalone backend server entry point
-├── internal/client/cli/    # Client command tree, sync, and migration
+├── internal/client/cli/    # Client root and command composition
+├── internal/client/cli/commands/ # Cobra command adapters
+├── internal/client/app/    # Client use cases and storage lifecycle
+├── internal/client/tui/    # Terminal UI adapter
+├── internal/client/sync/   # Sync diff, push/pull, mirrored storage
 ├── internal/server/        # Backend API, tenant data, and server commands
-├── command/                # User-facing CLI commands
-├── db/                     # Storage interface and bbolt/SQLite/cloud backends
-├── sync/                   # Local/remote diff and push/pull execution
-├── conf/                   # INI configuration and workspace management
-├── crypto/                 # Data encryption and key lifecycle
-├── i18n/                   # Localization loader and locale resources
-├── models/                 # Shared persisted and API-facing types
-├── util/                   # Small shared helpers
+├── internal/storage/       # SQLite and bbolt adapters
+├── internal/config/        # Shared INI configuration and workspaces
+├── internal/crypto/        # Shared data encryption and key lifecycle
+├── internal/i18n/          # Localization loader and locale resources
+├── internal/core/resource/ # Shared persisted and API-facing types
+├── internal/core/text/     # Stateless text helpers
 ├── integration_test/       # Cross-package and server/sync scenarios
 ├── scripts/                # CLI regression and full verification scripts
 └── docs/                   # Engineering workflow and decision records

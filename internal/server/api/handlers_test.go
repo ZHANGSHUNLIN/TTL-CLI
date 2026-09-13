@@ -10,9 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"ttl-cli/db"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
+	corestorage "ttl-cli/internal/core/storage"
+	storagebbolt "ttl-cli/internal/storage/bbolt"
 )
+
+var testStor corestorage.Storage
 
 func setupTempStorage(t *testing.T) func() {
 	t.Helper()
@@ -26,12 +29,16 @@ func setupTempStorage(t *testing.T) func() {
 		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("写入临时配置文件失败: %v", err)
 	}
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	local := storagebbolt.NewLocalStorage()
+	local.SetConfigFile(confPath)
+	if err := local.Init(); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("初始化临时存储失败: %v", err)
 	}
+	testStor = local
 	return func() {
-		_ = db.CloseDB()
+		_ = testStor.Close()
+		testStor = nil
 		_ = os.RemoveAll(tmpDir)
 	}
 }
@@ -44,7 +51,7 @@ func doResources(t *testing.T, method, target string, body any) *httptest.Respon
 		bodyReader = bytes.NewReader(b)
 	}
 	req := httptest.NewRequest(method, target, bodyReader)
-	req = req.WithContext(withUserStorage(req.Context(), "", db.Stor))
+	req = req.WithContext(withUserStorage(req.Context(), "", testStor))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -61,7 +68,7 @@ func doResource(t *testing.T, method, target string, body any) *httptest.Respons
 		bodyReader = bytes.NewReader(b)
 	}
 	req := httptest.NewRequest(method, target, bodyReader)
-	req = req.WithContext(withUserStorage(req.Context(), "", db.Stor))
+	req = req.WithContext(withUserStorage(req.Context(), "", testStor))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -98,7 +105,7 @@ func TestGetResources_WithData(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "site", Type: models.ORIGIN}, models.ValJson{Val: "v1", Tag: []string{}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "site", Type: resource.ORIGIN}, resource.ValJson{Val: "v1", Tag: []string{}})
 
 	w := doResources(t, http.MethodGet, "/api/v1/resources", nil)
 	resp := parseResponse(t, w)
@@ -115,8 +122,8 @@ func TestGetResources_Search(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "github", Type: models.ORIGIN}, models.ValJson{Val: "https://github.com", Tag: []string{}})
-	_ = db.SaveResource(models.ValJsonKey{Key: "gitlab", Type: models.ORIGIN}, models.ValJson{Val: "https://gitlab.com", Tag: []string{}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "github", Type: resource.ORIGIN}, resource.ValJson{Val: "https://github.com", Tag: []string{}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "gitlab", Type: resource.ORIGIN}, resource.ValJson{Val: "https://gitlab.com", Tag: []string{}})
 
 	w := doResources(t, http.MethodGet, "/api/v1/resources?q=github", nil)
 	resp := parseResponse(t, w)
@@ -159,7 +166,7 @@ func TestPutResource_Success(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "k1", Type: models.ORIGIN}, models.ValJson{Val: "old", Tag: []string{"t1"}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "k1", Type: resource.ORIGIN}, resource.ValJson{Val: "old", Tag: []string{"t1"}})
 
 	w := doResource(t, http.MethodPut, "/api/v1/resources/k1", UpdateResourceRequest{Value: "new"})
 	resp := parseResponse(t, w)
@@ -186,7 +193,7 @@ func TestDeleteResource_Success(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "del-me", Type: models.ORIGIN}, models.ValJson{Val: "bye", Tag: []string{}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "del-me", Type: resource.ORIGIN}, resource.ValJson{Val: "bye", Tag: []string{}})
 
 	w := doResource(t, http.MethodDelete, "/api/v1/resources/del-me", nil)
 	resp := parseResponse(t, w)
@@ -194,8 +201,8 @@ func TestDeleteResource_Success(t *testing.T) {
 		t.Fatalf("code=%d, msg=%s", resp.Code, resp.Message)
 	}
 
-	resources, _ := db.GetAllResources()
-	vjk := models.ValJsonKey{Key: "del-me", Type: models.ORIGIN}
+	resources, _ := testStor.GetAllResources()
+	vjk := resource.ValJsonKey{Key: "del-me", Type: resource.ORIGIN}
 	if _, exists := resources[vjk]; exists {
 		t.Error("资源未被删除")
 	}
@@ -205,7 +212,7 @@ func TestPostTags_Success(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "res", Type: models.ORIGIN}, models.ValJson{Val: "v", Tag: []string{"existing"}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "res", Type: resource.ORIGIN}, resource.ValJson{Val: "v", Tag: []string{"existing"}})
 
 	w := doResource(t, http.MethodPost, "/api/v1/resources/res/tags", AddTagsRequest{Tags: []string{"new1", "existing"}})
 	resp := parseResponse(t, w)
@@ -222,7 +229,7 @@ func TestDeleteTag_Success(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "res", Type: models.ORIGIN}, models.ValJson{Val: "v", Tag: []string{"keep", "remove"}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "res", Type: resource.ORIGIN}, resource.ValJson{Val: "v", Tag: []string{"keep", "remove"}})
 
 	w := doResource(t, http.MethodDelete, "/api/v1/resources/res/tags/remove", nil)
 	resp := parseResponse(t, w)
@@ -239,7 +246,7 @@ func TestRenameResource_Success(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "old", Type: models.ORIGIN}, models.ValJson{Val: "v", Tag: []string{"t1"}})
+	_ = testStor.SaveResource(resource.ValJsonKey{Key: "old", Type: resource.ORIGIN}, resource.ValJson{Val: "v", Tag: []string{"t1"}})
 
 	w := doResource(t, http.MethodPost, "/api/v1/resources/old/rename", RenameRequest{NewKey: "new"})
 	resp := parseResponse(t, w)
@@ -247,11 +254,11 @@ func TestRenameResource_Success(t *testing.T) {
 		t.Fatalf("code=%d, msg=%s", resp.Code, resp.Message)
 	}
 
-	resources, _ := db.GetAllResources()
-	if _, exists := resources[models.ValJsonKey{Key: "old", Type: models.ORIGIN}]; exists {
+	resources, _ := testStor.GetAllResources()
+	if _, exists := resources[resource.ValJsonKey{Key: "old", Type: resource.ORIGIN}]; exists {
 		t.Error("旧 key 未删除")
 	}
-	if _, exists := resources[models.ValJsonKey{Key: "new", Type: models.ORIGIN}]; !exists {
+	if _, exists := resources[resource.ValJsonKey{Key: "new", Type: resource.ORIGIN}]; !exists {
 		t.Error("新 key 不存在")
 	}
 }

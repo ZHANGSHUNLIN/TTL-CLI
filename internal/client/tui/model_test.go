@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
+	"ttl-cli/internal/i18n"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -41,7 +41,7 @@ func (s *fakeService) CreateResource(key, value string, tags []string) (clientap
 	if s.writeErr != nil {
 		return clientapp.Resource{}, s.writeErr
 	}
-	resource := clientapp.Resource{Key: models.ValJsonKey{Key: key, Type: models.ORIGIN}, Value: models.ValJson{Val: value, Tag: tags}}
+	resource := clientapp.Resource{Key: resource.ValJsonKey{Key: key, Type: resource.ORIGIN}, Value: resource.ValJson{Val: value, Tag: tags}}
 	s.resources = append(s.resources, resource)
 	return resource, nil
 }
@@ -228,8 +228,8 @@ func TestModel_BrowseListPagesAndKeepsControlsVisible(t *testing.T) {
 	resources := make([]clientapp.Resource, 0, 30)
 	for index := 0; index < 30; index++ {
 		resources = append(resources, clientapp.Resource{
-			Key:   models.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: models.ORIGIN},
-			Value: models.ValJson{Val: "value"},
+			Key:   resource.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: resource.ORIGIN},
+			Value: resource.ValJson{Val: "value"},
 		})
 	}
 	model := NewModel(&fakeService{resources: resources}, 100, 14)
@@ -257,8 +257,8 @@ func TestModel_LastListPageReportsLastPage(t *testing.T) {
 	resources := make([]clientapp.Resource, 0, 52)
 	for index := 0; index < 52; index++ {
 		resources = append(resources, clientapp.Resource{
-			Key:   models.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: models.ORIGIN},
-			Value: models.ValJson{Val: "value"},
+			Key:   resource.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: resource.ORIGIN},
+			Value: resource.ValJson{Val: "value"},
 		})
 	}
 	model := NewModel(&fakeService{resources: resources}, 180, 40)
@@ -304,5 +304,5 @@ func updateModel(t *testing.T, model Model, msg tea.Msg) Model {
 }
 
 func testResources() []clientapp.Resource {
-	return []clientapp.Resource{{Key: models.ValJsonKey{Key: "note", Type: models.ORIGIN}, Value: models.ValJson{Val: "value", Tag: []string{"work"}, CreatedAt: 1, UpdatedAt: 2}}}
+	return []clientapp.Resource{{Key: resource.ValJsonKey{Key: "note", Type: resource.ORIGIN}, Value: resource.ValJson{Val: "value", Tag: []string{"work"}, CreatedAt: 1, UpdatedAt: 2}}}
 }

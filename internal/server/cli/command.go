@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"ttl-cli/i18n"
+	"ttl-cli/internal/i18n"
 	api "ttl-cli/internal/server/api"
 	"ttl-cli/internal/server/tenant"
 

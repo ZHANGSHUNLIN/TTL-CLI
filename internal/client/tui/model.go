@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"strings"
 
-	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/i18n"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"

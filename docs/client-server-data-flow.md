@@ -53,7 +53,7 @@ ttl client（当前 CLI；TUI 计划中）
 
 ```text
 Cobra 命令
-  -> command.AddCmd
+  -> internal/client/cli/commands.AddCmd
   -> internal/client/app.Service.SaveResource
   -> 当前 core/storage.Storage
        -> SQLiteStorage
@@ -62,7 +62,7 @@ Cobra 命令
        -> client/sync.MirroredStorage
 ```
 
-客户端由 `internal/client/cli` 创建一个显式 `internal/client/app.Service`，通过命令 context 注入；命令执行结束后由客户端入口关闭服务。命令和同步流程不读取全局 `db.Stor`。
+客户端由 `internal/client/cli` 创建一个显式 `internal/client/app.Service`，通过命令 context 注入；命令执行结束后由客户端入口关闭服务。命令和同步流程不读取全局存储状态。
 
 ## 4. 后端如何实现
 
@@ -250,6 +250,7 @@ go build -o ttl-server ./cmd/ttl-server
 - HTTP API 没有协议版本协商；开发阶段变更由客户端和服务端同步发布。
 - 服务端使用明文 HTTP 监听，没有内建 TLS、健康检查端点或优雅关闭流程。远程部署时应在受控网络或 HTTPS 反向代理后使用，并由部署层配置防火墙和访问控制。
 - 服务端监听 `:port`，即所有网络接口，而不只监听本机回环地址。
+- W-010 已提出独立交付目标：默认私有监听、`/healthz`、优雅关闭、外部 TLS 终止和版本化回滚；在实现完成前，本节描述的现状仍然有效。
 - API Key 以明文形式保存在服务端 `users.json` 中。虽然文件权限为 `0600`，仍需要保护数据目录和备份。
 - 资源 key 直接拼接到 URL path，当前客户端没有执行路径转义；包含 `/`、空格或特殊字符的 key 需要额外验证。
 
@@ -307,14 +308,14 @@ go build -o ttl-server ./cmd/ttl-server
 | 关注点 | 代码位置 |
 | --- | --- |
 | 客户端命令树与存储初始化 | `internal/client/cli/root.go` |
-| 普通资源命令 | `command/commands.go` |
+| 普通资源命令 | `internal/client/cli/commands/commands.go` |
 | 客户端存储选择与生命周期 | `internal/client/app/` |
 | 共享存储接口 | `internal/core/storage/storage.go` |
 | SQLite 实现 | `internal/storage/sqlite/storage.go` |
 | bbolt 实现 | `internal/storage/bbolt/storage.go` |
 | HTTP 远端存储 | `internal/client/remote/storage.go` |
 | 镜像读写存储 | `internal/client/sync/storage.go` |
-| 差异计算和 push/pull | `sync/sync.go` |
+| 差异计算和 push/pull | `internal/client/sync/sync.go` |
 | 服务端命令 | `internal/server/cli/command.go` |
 | HTTP 路由和启动 | `internal/server/api/server.go` |
 | 认证中间件 | `internal/server/api/middleware.go` |

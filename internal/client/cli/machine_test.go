@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
+	"ttl-cli/internal/i18n"
 
 	"github.com/spf13/cobra"
 )
@@ -20,8 +20,8 @@ import (
 func TestWriteJSONSuccessUsesVersionedEnvelope(t *testing.T) {
 	var output bytes.Buffer
 	resource := clientapp.Resource{
-		Key:   models.ValJsonKey{Key: "note", Type: models.ORIGIN},
-		Value: models.ValJson{Val: "value", Tag: nil, CreatedAt: 1, UpdatedAt: 2},
+		Key:   resource.ValJsonKey{Key: "note", Type: resource.ORIGIN},
+		Value: resource.ValJson{Val: "value", Tag: nil, CreatedAt: 1, UpdatedAt: 2},
 	}
 
 	if err := writeJSONSuccess(&output, resourceData{Resource: toResourceDTO(resource)}); err != nil {
@@ -192,6 +192,6 @@ type closeErrorStorage struct {
 }
 
 func (*closeErrorStorage) Close() error { return errors.New("close failed") }
-func (*closeErrorStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
-	return map[models.ValJsonKey]models.ValJson{}, nil
+func (*closeErrorStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
+	return map[resource.ValJsonKey]resource.ValJson{}, nil
 }

@@ -10,7 +10,7 @@
       "completed": true
     },
     "W-010": {
-      "status": "Inbox",
+      "status": "Doing",
       "completed": false
     },
     "W-011": {
@@ -22,6 +22,10 @@
       "completed": true
     },
     "W-015": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-017": {
       "status": "Done",
       "completed": true
     }

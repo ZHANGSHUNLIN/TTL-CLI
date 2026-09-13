@@ -1,6 +1,6 @@
 # TTL 客户端与后端服务拆分方案
 
-状态：已确认；源码边界阶段 A、B 已实施，阶段 C 客户端生命周期已完成；云端独立交付尚未完成
+状态：已确认；W-017 一次性结构切换已完成；W-010 云端独立交付尚未完成
 
 ## 1. 目标与术语
 
@@ -28,12 +28,12 @@
 | 现状 | 问题 |
 | --- | --- |
 | `main.go` 同时定义根 CLI、服务端用户管理和同步命令 | 客户端与服务端运维入口混在一个 456 行文件中 |
-| `command/` 只包含部分 Cobra 命令 | 看到该目录无法确认所有命令都在哪里 |
-| `api/` 是服务端 HTTP 层，但 `db/` 同时包含本地、远端客户端和租户存储 | “后端代码”分散在 `api/`、`db/` 和根目录 |
-| `models/` 同时承担持久化模型和跨端协议模型 | 共享契约与存储细节没有区分 |
-| `sync/` 是客户端同步流程，但名字像通用后端能力 | 容易误判它属于哪一端 |
+| 客户端命令、存储和同步曾分散在顶层包 | 维护者无法确认修改入口 |
+| 服务端 HTTP 层与租户存储曾与客户端存储混杂 | “后端代码”职责边界不清 |
+| 共享模型与存储契约曾通过别名转发 | 共享契约与实现细节没有区分 |
+| 同步 diff 与镜像写入曾位于不同目录 | 容易误判同步能力归属 |
 
-因此，仅把 `command/` 改名为 `frontend/`、把 `api/` 改名为 `backend/` 并不能真正分开。
+因此，仅改目录名称并不能真正分开；W-017 已按依赖方向完成一次性归属收敛。
 
 ## 3. 目标目录
 
@@ -49,7 +49,8 @@ ttl-cli/
 ├── internal/
 │   ├── client/
 │   │   ├── cli/                     # Cobra 根命令和客户端子命令
-│   │   ├── tui/                     # 后续 TUI；未实现前不创建空包
+│   │   │   └── commands/            # Cobra 命令适配
+│   │   ├── tui/                     # TUI 适配
 │   │   ├── remote/                  # /api/v1 HTTP 客户端
 │   │   └── sync/                    # diff、push、pull 及交互确认
 │   ├── server/
@@ -63,8 +64,8 @@ ttl-cli/
 │   ├── storage/
 │   │   ├── sqlite/                  # 客户端默认本地实现
 │   │   └── bbolt/                   # bbolt 与服务端租户数据库实现
-│   ├── config/                      # 客户端配置和工作空间
-│   ├── cryptox/                     # 数据加密与密钥生命周期
+│   ├── config/                      # 共享配置和工作空间
+│   ├── crypto/                      # 共享数据加密与密钥生命周期
 │   └── i18n/                        # 本地化加载与语言资源
 ├── integration_test/
 │   ├── client/                      # CLI、本地数据和工作空间场景
@@ -102,7 +103,7 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 具体规则：
 
 1. 客户端访问远端只能通过 `internal/client/remote` 的 HTTP 契约，不能直接调用 server handler；任何客户端包都不得依赖 `internal/server`。
-2. `internal/server/api` 和 `internal/server/tenant` 不依赖客户端 Cobra 命令、终端交互、客户端配置或工作空间；`internal/server/cli` 可以使用 Cobra 提供服务端自身的 `serve` 和用户管理命令。
+2. `internal/server/api` 和 `internal/server/tenant` 不依赖客户端 Cobra 命令、终端交互或客户端专属状态；共享 `internal/config`、`internal/crypto` 基础包可被 bbolt 适配器使用；`internal/server/cli` 可以使用 Cobra 提供服务端自身的 `serve` 和用户管理命令。
 3. `core` 不依赖具体数据库、HTTP、Cobra 或全局变量。
 4. SQLite 与 bbolt 实现依赖 `core/storage`，反向依赖禁止。
 5. API DTO 只属于 server API；若客户端需要同一 JSON 契约，提取为小型共享 protocol 包，不直接共享 handler 内部类型。
@@ -113,8 +114,8 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 | --- | --- | --- |
 | `main.go` | 删除；入口拆到 `cmd/ttl/main.go`、`cmd/ttl-server/main.go` | 不保留根目录构建入口 |
 | `migrate.go` | `internal/client/cli/migrate.go` | 这是客户端数据运维命令 |
-| `command/*.go` | `internal/client/cli/` | CLI/TUI 共享逻辑要先从 Cobra handler 中提取 |
-| `sync/` | `internal/client/sync/` | 属于本地客户端对远端的同步用例 |
+| `command/*.go` | `internal/client/cli/commands/` | 已完成一次性迁移为客户端 Cobra 适配层 |
+| `sync/` | `internal/client/sync/` | 已完成一次性迁移，属于本地客户端对远端的同步用例 |
 | `api/` | `internal/server/api/` | handler 与 HTTP DTO 保持在服务端 |
 | `db/tenant_storage.go` | `internal/server/tenant/storage.go` | 只服务于多租户后端 |
 | `db/user_store.go` | `internal/server/tenant/users.go` | 后端用户和 API Key 管理 |
@@ -122,11 +123,11 @@ internal/core/*   -> internal/client/* 或 internal/server/*
 | `db/sqlite.go` | `internal/storage/sqlite/` | 默认本地后端 |
 | `db/db.go` 中 `LocalStorage` | `internal/storage/bbolt/` | bbolt 具体实现 |
 | `db/db.go` 中 `CloudStorage` | `internal/client/remote/` | 它是 HTTP 客户端，不是数据库 |
-| `db/db.go` 中 `SyncStorage` | 评估后移入 `internal/client/sync/` 或删除 | 与显式 push/pull 语义重叠，先确认生产消费者 |
-| `db/storage.go` | 拆到 `internal/core/storage/` 与客户端组装层 | 去掉全局 `db.Stor` 后再完成 |
+| `db/db.go` 中 `SyncStorage` | `internal/client/sync/` | 已完成一次性迁移，与显式 push/pull 统一归属 |
+| `db/storage.go` | `internal/core/storage/` 与 `internal/client/app/` | 已去掉全局 `db.Stor` 并删除旧门面 |
 | `models/` | `internal/core/resource/`，用户模型归 `internal/server/tenant/` | 避免服务端用户模型泄漏给客户端 |
 | `conf/` | `internal/config/` | 当前主要是客户端本地配置和工作空间 |
-| `crypto/` | `internal/cryptox/` | 避免与标准库语义混淆 |
+| `crypto/` | `internal/crypto/` | 共享基础包，避免服务端通过 bbolt 反向依赖客户端 |
 | `i18n/` | `internal/i18n/` | 主要服务本地交互；服务端错误后续单独规范 |
 | `util/` | 按真实消费者下沉 | 不保留泛化的杂物包 |
 
@@ -162,49 +163,31 @@ ttl-server user list
 - 构建环境可以检出整个 monorepo；运行环境只能获得对应制品。不得把源码仓库整体复制到云端作为运行目录。
 - 服务端部署必须明确监听地址、数据卷、密钥注入、日志、健康检查、优雅关闭、TLS 终止位置和最小运行权限。
 
-## 7. 分阶段实施
+## 7. 一次性结构切换与后续交付
 
-### 阶段 A：先拆可执行入口，不搬核心包
+W-017 已在一个变更窗口内完成入口、模型、配置、加密、同步、存储和测试的统一迁移；内部依赖顺序只用于编辑和验证，不代表多个中间版本或分阶段交付。当前目录和 import 图以本文件第 3、4 节为准。
 
-- [x] 把 server 与 user 命令从 `main.go` 拆到 `internal/server/cli`。
-- [x] 新增 `cmd/ttl-server`，提供 `serve` 和 `user` 命令。
-- [x] 建立 `cmd/ttl` 和可测试的客户端 `NewRootCommand`。
-- [x] 删除根目录 `main.go` 和客户端中的 `ttl server` 入口，客户端二进制不得链接服务端实现。
-- 验收：两个二进制可构建；原 CLI 黑盒回归通过；server 单元与集成测试通过。
-
-### 阶段 B：拆 HTTP 客户端与服务端存储
-
-- [x] 将 `CloudStorage` 从 `db` 移到客户端 remote 包。
-- [x] 将 HTTP API、`UserStore` 和租户存储管理移到 `internal/server`。
-- [x] 将 `SyncStorage` 移到客户端同步边界。
-- [x] 用接口构造 server handler，不再回退到全局 `db.Stor`。
-- 验收：客户端包不 import server 包；服务端 API 和租户包不 import 客户端包或客户端 Cobra 命令；API 契约测试通过。
-
-### 阶段 C：建立共享 core 并迁移本地存储
-
-- [x] 抽出最小 `Storage` 接口与资源领域类型。
-- [x] SQLite、bbolt 实现迁入 `internal/storage`。
-- 删除 `models`、`db` 中的旧类型别名、构造器和全局门面，调用方直接使用目标包。
-- [x] server handler 通过构造函数注入存储，不再读取全局 `db.Stor`。
-- [x] 消除客户端命令对 `db.Stor` 的依赖；server 已通过请求上下文注入，不再依赖该全局变量。
-- 验收：`core` 无具体存储和传输依赖；包级、集成和 race 检查通过。
-
-### 阶段 D：建立云端独立交付
+### 后续：建立云端独立交付
 
 - 为 `ttl-server` 建立独立的 CI 构建和发布制品，不能只在本地验证可编译。
 - 提供只包含服务端运行内容的部署包或最小容器镜像。
 - 定义服务端配置、密钥、数据卷、健康检查、优雅关闭、日志和 TLS 边界。
 - 增加部署冒烟、制品内容检查以及独立升级和回滚验证。
 
-### 阶段 E：接入 TUI 并清理旧入口
+W-010 当前的交付基线、技术方案和参考部署见：
+[`docs/requirements/2026-09-13-server-independent-delivery.md`](requirements/2026-09-13-server-independent-delivery.md)、
+[`docs/tech-designs/2026-09-13-server-independent-delivery.md`](tech-designs/2026-09-13-server-independent-delivery.md)
+和 [`docs/server-deployment.md`](server-deployment.md)。
 
-- 在 `internal/client/tui` 实现 `ttl ui`，复用 core 用例而非解析 CLI 文本。
-- [x] 删除根目录旧入口与 `ttl server` 代理。
-- 更新客户端安装包，不得将 `ttl-server` 作为客户端必需组件。
+### 已完成：TUI 与旧入口收敛
+
+- `internal/client/tui` 已实现 `ttl ui`，复用 client app/core 用例而非解析 CLI 文本。
+- 已删除根目录旧入口与 `ttl server` 代理。
+- 客户端安装包不依赖 `ttl-server`。
 
 ## 8. 测试与验收
 
-每个阶段至少运行：
+一次性切换完成后统一运行：
 
 ```bash
 gofmt -s -l .
@@ -239,7 +222,7 @@ go test ./internal/architecture
 
 | 风险 | 控制措施 |
 | --- | --- |
-| 一次移动大量文件导致 diff 无法审核 | 五阶段迁移，每阶段单独任务和验证 |
+| 一次移动大量文件导致 diff 无法审核 | 先完成设计和依赖盘点，再在同一变更窗口按内部顺序编辑，最后统一评审和回归 |
 | `internal/` 使外部 Go 使用者无法 import | 当前产品是可执行程序；若以后承诺 SDK，再建立稳定 `pkg/` |
 | 两个应用增加发布成本 | 使用同一仓库和可复用流水线模板，但为客户端和服务端生成独立制品与部署步骤 |
 | 去除全局存储改变初始化顺序 | 先增加构造函数和测试，再迁移调用者 |

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
 )
 
 func mockAPIServer(t *testing.T) *httptest.Server {
@@ -87,7 +87,7 @@ func mockAPIServer(t *testing.T) *httptest.Server {
 
 	mux.HandleFunc("/api/v1/audit/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		resp, _ := json.Marshal(map[string]any{"code": 0, "message": "success", "data": models.AuditStats{
+		resp, _ := json.Marshal(map[string]any{"code": 0, "message": "success", "data": resource.AuditStats{
 			TotalOperations: 5,
 			ByOperation:     map[string]int{"get": 3, "add": 2},
 			ByResource:      map[string]int{"mykey": 5},
@@ -97,7 +97,7 @@ func mockAPIServer(t *testing.T) *httptest.Server {
 
 	mux.HandleFunc("/api/v1/history", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		resp, _ := json.Marshal(map[string]any{"code": 0, "message": "success", "data": []models.HistoryRecord{
+		resp, _ := json.Marshal(map[string]any{"code": 0, "message": "success", "data": []resource.HistoryRecord{
 			{ID: 1, ResourceKey: "mykey", Operation: "add", Timestamp: 1000, TimeStr: "2025-01-01 00:00:00"},
 		}})
 		w.Write(resp)
@@ -114,8 +114,8 @@ func TestCloudStorage_GetAllResources(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "test", Type: models.ORIGIN}
-	_ = cs.SaveResource(key, models.ValJson{Val: "hello", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "test", Type: resource.ORIGIN}
+	_ = cs.SaveResource(key, resource.ValJson{Val: "hello", Tag: []string{}})
 
 	resources, err := cs.GetAllResources()
 	if err != nil {
@@ -137,13 +137,13 @@ func TestCloudStorage_SaveResource(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "new-res", Type: models.ORIGIN}
-	err := cs.SaveResource(key, models.ValJson{Val: "value1", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "new-res", Type: resource.ORIGIN}
+	err := cs.SaveResource(key, resource.ValJson{Val: "value1", Tag: []string{}})
 	if err != nil {
 		t.Fatalf("SaveResource 失败: %v", err)
 	}
 
-	err = cs.SaveResource(key, models.ValJson{Val: "value2", Tag: []string{}})
+	err = cs.SaveResource(key, resource.ValJson{Val: "value2", Tag: []string{}})
 	if err == nil {
 		t.Fatal("重复保存应该返回错误")
 	}
@@ -157,8 +157,8 @@ func TestCloudStorage_DeleteResource(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "del-me", Type: models.ORIGIN}
-	_ = cs.SaveResource(key, models.ValJson{Val: "bye", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "del-me", Type: resource.ORIGIN}
+	_ = cs.SaveResource(key, resource.ValJson{Val: "bye", Tag: []string{}})
 
 	err := cs.DeleteResource(key)
 	if err != nil {
@@ -179,10 +179,10 @@ func TestCloudStorage_UpdateResource(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "upd", Type: models.ORIGIN}
-	_ = cs.SaveResource(key, models.ValJson{Val: "old", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "upd", Type: resource.ORIGIN}
+	_ = cs.SaveResource(key, resource.ValJson{Val: "old", Tag: []string{}})
 
-	err := cs.UpdateResource(key, models.ValJson{Val: "new", Tag: []string{}})
+	err := cs.UpdateResource(key, resource.ValJson{Val: "new", Tag: []string{}})
 	if err != nil {
 		t.Fatalf("UpdateResource 失败: %v", err)
 	}

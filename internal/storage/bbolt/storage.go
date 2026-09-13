@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-	"ttl-cli/conf"
-	"ttl-cli/crypto"
+	"ttl-cli/internal/config"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
+	"ttl-cli/internal/crypto"
 
 	"go.etcd.io/bbolt"
 )
@@ -93,11 +93,11 @@ func (ls *LocalStorage) Close() error {
 	return nil
 }
 
-func (ls *LocalStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
-	resources := make(map[models.ValJsonKey]models.ValJson)
+func (ls *LocalStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
+	resources := make(map[resource.ValJsonKey]resource.ValJson)
 	var resourceList []struct {
-		key models.ValJsonKey
-		val models.ValJson
+		key resource.ValJsonKey
+		val resource.ValJson
 	}
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
@@ -107,12 +107,12 @@ func (ls *LocalStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson,
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var key models.ValJsonKey
+			var key resource.ValJsonKey
 			if err := json.Unmarshal(k, &key); err != nil {
 				return fmt.Errorf("解析key失败: %w", err)
 			}
 
-			var val models.ValJson
+			var val resource.ValJson
 			if err := json.Unmarshal(v, &val); err != nil {
 				return fmt.Errorf("解析value失败: %w", err)
 			}
@@ -126,8 +126,8 @@ func (ls *LocalStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson,
 			}
 
 			resourceList = append(resourceList, struct {
-				key models.ValJsonKey
-				val models.ValJson
+				key resource.ValJsonKey
+				val resource.ValJson
 			}{key, val})
 			return nil
 		})
@@ -148,7 +148,7 @@ func (ls *LocalStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson,
 	return resources, nil
 }
 
-func (ls *LocalStorage) SaveResource(key models.ValJsonKey, value models.ValJson) error {
+func (ls *LocalStorage) SaveResource(key resource.ValJsonKey, value resource.ValJson) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("resources"))
 		if bucket == nil {
@@ -163,9 +163,9 @@ func (ls *LocalStorage) SaveResource(key models.ValJsonKey, value models.ValJson
 		existingVal := bucket.Get(keyBytes)
 		now := time.Now().Unix()
 
-		var saveValue models.ValJson
+		var saveValue resource.ValJson
 		if existingVal != nil {
-			var existing models.ValJson
+			var existing resource.ValJson
 			if err := json.Unmarshal(existingVal, &existing); err == nil {
 				saveValue = value
 				saveValue.CreatedAt = existing.CreatedAt
@@ -186,7 +186,7 @@ func (ls *LocalStorage) SaveResource(key models.ValJsonKey, value models.ValJson
 			if err != nil {
 				return fmt.Errorf("加密val失败: %w", err)
 			}
-			saveValue = models.ValJson{Val: encryptedVal, Tag: saveValue.Tag, CreatedAt: saveValue.CreatedAt, UpdatedAt: saveValue.UpdatedAt}
+			saveValue = resource.ValJson{Val: encryptedVal, Tag: saveValue.Tag, CreatedAt: saveValue.CreatedAt, UpdatedAt: saveValue.UpdatedAt}
 		}
 
 		valBytes, err := json.Marshal(saveValue)
@@ -198,7 +198,7 @@ func (ls *LocalStorage) SaveResource(key models.ValJsonKey, value models.ValJson
 	})
 }
 
-func (ls *LocalStorage) DeleteResource(key models.ValJsonKey) error {
+func (ls *LocalStorage) DeleteResource(key resource.ValJsonKey) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("resources"))
 		if bucket == nil {
@@ -214,7 +214,7 @@ func (ls *LocalStorage) DeleteResource(key models.ValJsonKey) error {
 	})
 }
 
-func (ls *LocalStorage) UpdateResource(key models.ValJsonKey, newValue models.ValJson) error {
+func (ls *LocalStorage) UpdateResource(key resource.ValJsonKey, newValue resource.ValJson) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("resources"))
 		if bucket == nil {
@@ -227,7 +227,7 @@ func (ls *LocalStorage) UpdateResource(key models.ValJsonKey, newValue models.Va
 		}
 
 		if existingBytes := bucket.Get(keyBytes); existingBytes != nil {
-			var existing models.ValJson
+			var existing resource.ValJson
 			if err := json.Unmarshal(existingBytes, &existing); err != nil {
 				return fmt.Errorf("解析value失败: %w", err)
 			}
@@ -242,7 +242,7 @@ func (ls *LocalStorage) UpdateResource(key models.ValJsonKey, newValue models.Va
 			if err != nil {
 				return fmt.Errorf("加密val失败: %w", err)
 			}
-			saveValue = models.ValJson{Val: encryptedVal, Tag: newValue.Tag, CreatedAt: newValue.CreatedAt, UpdatedAt: newValue.UpdatedAt}
+			saveValue = resource.ValJson{Val: encryptedVal, Tag: newValue.Tag, CreatedAt: newValue.CreatedAt, UpdatedAt: newValue.UpdatedAt}
 		}
 
 		valBytes, err := json.Marshal(saveValue)
@@ -254,16 +254,16 @@ func (ls *LocalStorage) UpdateResource(key models.ValJsonKey, newValue models.Va
 	})
 }
 
-func (ls *LocalStorage) GetTagStats() ([]models.TagStat, error) {
+func (ls *LocalStorage) GetTagStats() ([]resource.TagStat, error) {
 	resources, err := ls.GetAllResources()
 	if err != nil {
 		return nil, err
 	}
 
-	tagMap := make(map[string]models.TagStat)
+	tagMap := make(map[string]resource.TagStat)
 
 	for key, val := range resources {
-		if key.Type != models.ORIGIN {
+		if key.Type != resource.ORIGIN {
 			continue
 		}
 
@@ -273,7 +273,7 @@ func (ls *LocalStorage) GetTagStats() ([]models.TagStat, error) {
 				stat.ResourceKeys = append(stat.ResourceKeys, key.Key)
 				tagMap[tag] = stat
 			} else {
-				tagMap[tag] = models.TagStat{
+				tagMap[tag] = resource.TagStat{
 					Tag:          tag,
 					Count:        1,
 					ResourceKeys: []string{key.Key},
@@ -282,7 +282,7 @@ func (ls *LocalStorage) GetTagStats() ([]models.TagStat, error) {
 		}
 	}
 
-	stats := make([]models.TagStat, 0, len(tagMap))
+	stats := make([]resource.TagStat, 0, len(tagMap))
 	for _, stat := range tagMap {
 		stats = append(stats, stat)
 	}
@@ -343,7 +343,7 @@ func (ls *LocalStorage) DisableEncryption() error {
 }
 
 func (ls *LocalStorage) migrateToEncrypted() error {
-	resources := make(map[models.ValJsonKey]models.ValJson)
+	resources := make(map[resource.ValJsonKey]resource.ValJson)
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("resources"))
@@ -352,12 +352,12 @@ func (ls *LocalStorage) migrateToEncrypted() error {
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var key models.ValJsonKey
+			var key resource.ValJsonKey
 			if err := json.Unmarshal(k, &key); err != nil {
 				return err
 			}
 
-			var val models.ValJson
+			var val resource.ValJson
 			if err := json.Unmarshal(v, &val); err != nil {
 				return err
 			}
@@ -387,7 +387,7 @@ func (ls *LocalStorage) migrateToEncrypted() error {
 }
 
 func (ls *LocalStorage) migrateToPlain() error {
-	resources := make(map[models.ValJsonKey]models.ValJson)
+	resources := make(map[resource.ValJsonKey]resource.ValJson)
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("resources"))
@@ -396,12 +396,12 @@ func (ls *LocalStorage) migrateToPlain() error {
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var key models.ValJsonKey
+			var key resource.ValJsonKey
 			if err := json.Unmarshal(k, &key); err != nil {
 				return err
 			}
 
-			var val models.ValJson
+			var val resource.ValJson
 			if err := json.Unmarshal(v, &val); err != nil {
 				return err
 			}
@@ -441,13 +441,13 @@ func (ls *LocalStorage) migrateToPlain() error {
 
 func GetDBPath(confFile string, storageType string) (string, error) {
 	var (
-		ttlConf models.TtlIni
+		ttlConf config.TtlIni
 		err     error
 	)
 	if confFile != "" {
-		ttlConf, err = conf.GetTtlConfFromFile(confFile)
+		ttlConf, err = config.GetTtlConfFromFile(confFile)
 	} else {
-		ttlConf, err = conf.GetTtlConf()
+		ttlConf, err = config.GetTtlConf()
 	}
 	if err != nil {
 		return "", err
@@ -512,7 +512,7 @@ func GetDBPath(confFile string, storageType string) (string, error) {
 	}
 }
 
-func (ls *LocalStorage) SaveAuditRecord(record models.AuditRecord) error {
+func (ls *LocalStorage) SaveAuditRecord(record resource.AuditRecord) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("audit"))
 		if bucket == nil {
@@ -529,8 +529,8 @@ func (ls *LocalStorage) SaveAuditRecord(record models.AuditRecord) error {
 	})
 }
 
-func (ls *LocalStorage) GetAuditStats() (models.AuditStats, error) {
-	stats := models.AuditStats{
+func (ls *LocalStorage) GetAuditStats() (resource.AuditStats, error) {
+	stats := resource.AuditStats{
 		ByOperation: make(map[string]int),
 		ByResource:  make(map[string]int),
 	}
@@ -542,7 +542,7 @@ func (ls *LocalStorage) GetAuditStats() (models.AuditStats, error) {
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var record models.AuditRecord
+			var record resource.AuditRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return fmt.Errorf("解析审计记录失败: %w", err)
 			}
@@ -558,8 +558,8 @@ func (ls *LocalStorage) GetAuditStats() (models.AuditStats, error) {
 	return stats, err
 }
 
-func (ls *LocalStorage) GetAllAuditRecords() ([]models.AuditRecord, error) {
-	var records []models.AuditRecord
+func (ls *LocalStorage) GetAllAuditRecords() ([]resource.AuditRecord, error) {
+	var records []resource.AuditRecord
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("audit"))
@@ -567,7 +567,7 @@ func (ls *LocalStorage) GetAllAuditRecords() ([]models.AuditRecord, error) {
 			return nil
 		}
 		return bucket.ForEach(func(_, v []byte) error {
-			var record models.AuditRecord
+			var record resource.AuditRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return fmt.Errorf("解析审计记录失败: %w", err)
 			}
@@ -587,7 +587,7 @@ func (ls *LocalStorage) DeleteAuditRecords(resourceKey string) error {
 
 		var toDelete [][]byte
 		err := bucket.ForEach(func(k, v []byte) error {
-			var record models.AuditRecord
+			var record resource.AuditRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return err
 			}
@@ -612,7 +612,7 @@ func (ls *LocalStorage) DeleteAuditRecords(resourceKey string) error {
 	})
 }
 
-func (ls *LocalStorage) SaveHistoryRecord(record models.HistoryRecord) error {
+func (ls *LocalStorage) SaveHistoryRecord(record resource.HistoryRecord) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("history"))
 		if bucket == nil {
@@ -629,8 +629,8 @@ func (ls *LocalStorage) SaveHistoryRecord(record models.HistoryRecord) error {
 	})
 }
 
-func (ls *LocalStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
-	var records []models.HistoryRecord
+func (ls *LocalStorage) GetAllHistoryRecords() ([]resource.HistoryRecord, error) {
+	var records []resource.HistoryRecord
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("history"))
@@ -639,7 +639,7 @@ func (ls *LocalStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var record models.HistoryRecord
+			var record resource.HistoryRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return fmt.Errorf("解析历史记录失败: %w", err)
 			}
@@ -655,8 +655,8 @@ func (ls *LocalStorage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
 	return records, err
 }
 
-func (ls *LocalStorage) GetHistoryRecord(index int, order models.SortOrder) (models.HistoryRecord, error) {
-	var record models.HistoryRecord
+func (ls *LocalStorage) GetHistoryRecord(index int, order resource.SortOrder) (resource.HistoryRecord, error) {
+	var record resource.HistoryRecord
 	var found bool
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
@@ -677,9 +677,9 @@ func (ls *LocalStorage) GetHistoryRecord(index int, order models.SortOrder) (mod
 		}
 
 		var targetIndex int
-		if order == models.Descending {
+		if order == resource.Descending {
 			targetIndex = total - 1 - index
-		} else if order == models.Ascending {
+		} else if order == resource.Ascending {
 			targetIndex = index
 		}
 
@@ -699,18 +699,18 @@ func (ls *LocalStorage) GetHistoryRecord(index int, order models.SortOrder) (mod
 	})
 
 	if err != nil {
-		return models.HistoryRecord{}, err
+		return resource.HistoryRecord{}, err
 	}
 
 	if !found {
-		return models.HistoryRecord{}, fmt.Errorf("index %d out of bounds", index)
+		return resource.HistoryRecord{}, fmt.Errorf("index %d out of bounds", index)
 	}
 
 	return record, nil
 }
 
-func (ls *LocalStorage) GetHistoryStats() (models.HistoryStats, error) {
-	stats := models.HistoryStats{
+func (ls *LocalStorage) GetHistoryStats() (resource.HistoryStats, error) {
+	stats := resource.HistoryStats{
 		ByOperation: make(map[string]int),
 		ByResource:  make(map[string]int),
 	}
@@ -740,7 +740,7 @@ func (ls *LocalStorage) DeleteHistoryRecords(resourceKey string) error {
 
 		var toDelete [][]byte
 		err := bucket.ForEach(func(k, v []byte) error {
-			var record models.HistoryRecord
+			var record resource.HistoryRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return err
 			}
@@ -765,7 +765,7 @@ func (ls *LocalStorage) DeleteHistoryRecords(resourceKey string) error {
 	})
 }
 
-func (ls *LocalStorage) SaveLogRecord(record models.LogRecord) error {
+func (ls *LocalStorage) SaveLogRecord(record resource.LogRecord) error {
 	return ls.db.Update(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("logs"))
 		if bucket == nil {
@@ -782,8 +782,8 @@ func (ls *LocalStorage) SaveLogRecord(record models.LogRecord) error {
 	})
 }
 
-func (ls *LocalStorage) GetLogRecords(startDate, endDate string) ([]models.LogRecord, error) {
-	var records []models.LogRecord
+func (ls *LocalStorage) GetLogRecords(startDate, endDate string) ([]resource.LogRecord, error) {
+	var records []resource.LogRecord
 
 	err := ls.db.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket([]byte("logs"))
@@ -792,7 +792,7 @@ func (ls *LocalStorage) GetLogRecords(startDate, endDate string) ([]models.LogRe
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var record models.LogRecord
+			var record resource.LogRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return fmt.Errorf("解析日志记录失败: %w", err)
 			}
@@ -825,7 +825,7 @@ func (ls *LocalStorage) DeleteLogRecord(id int64) error {
 
 		var targetKey []byte
 		err := bucket.ForEach(func(k, v []byte) error {
-			var record models.LogRecord
+			var record resource.LogRecord
 			if err := json.Unmarshal(v, &record); err != nil {
 				return err
 			}

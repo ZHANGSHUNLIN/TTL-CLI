@@ -24,19 +24,20 @@
 
 - W-010 建立云端服务独立交付链路
   - 类型：feature
+  - 描述：把 `ttl-server` 从“能编译的服务端入口”准备成可独立构建、发布、部署、探活、升级和回滚的云端服务制品。
   - 优先级：P1
-  - 当前阶段：requirements
+  - 当前阶段：design_review
   - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
   - 父任务：无
-  - 依赖：W-004,W-006
-  - 产物：需求=[`docs/requirements/2026-09-13-server-independent-delivery.md`](docs/requirements/2026-09-13-server-independent-delivery.md)；方案=[`docs/tech-designs/2026-09-13-server-independent-delivery.md`](docs/tech-designs/2026-09-13-server-independent-delivery.md)；评审=[`docs/reviews/2026-09-13-server-independent-delivery-design.md`](docs/reviews/2026-09-13-server-independent-delivery-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-server-independent-delivery.md`](docs/task-breakdowns/2026-09-13-server-independent-delivery.md)；测试=[`docs/tests/2026-09-13-server-independent-delivery.md`](docs/tests/2026-09-13-server-independent-delivery.md)；验收=[`docs/acceptance/2026-09-13-server-independent-delivery.md`](docs/acceptance/2026-09-13-server-independent-delivery.md)；提交：待完成
-  - 阻塞原因：独立构建、制品、部署和回滚方案尚未设计评审
-  - 下一步：完成需求和技术方案，明确 CI、运行时配置、数据卷、健康检查、TLS 与回滚验收
+  - 依赖：W-004,W-006,W-017
+  - 产物：需求=[`docs/requirements/2026-09-13-server-independent-delivery.md`](docs/requirements/2026-09-13-server-independent-delivery.md)；方案=[`docs/tech-designs/2026-09-13-server-independent-delivery.md`](docs/tech-designs/2026-09-13-server-independent-delivery.md)；评审=[`docs/reviews/2026-09-13-server-independent-delivery-design.md`](docs/reviews/2026-09-13-server-independent-delivery-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-server-independent-delivery.md`](docs/task-breakdowns/2026-09-13-server-independent-delivery.md)；测试=[`docs/tests/2026-09-13-server-independent-delivery.md`](docs/tests/2026-09-13-server-independent-delivery.md)；验收=[`docs/acceptance/2026-09-13-server-independent-delivery.md`](docs/acceptance/2026-09-13-server-independent-delivery.md)；部署=[`docs/server-deployment.md`](docs/server-deployment.md)；决策=[`docs/decisions/2026-09-13-server-independent-delivery-baseline.md`](docs/decisions/2026-09-13-server-independent-delivery-baseline.md)（`proposed`）；提交：待完成
+  - 阻塞原因：无（等待方案评审门禁）
+  - 下一步：完成方案评审，确认 Linux/systemd 基线、TLS 终止边界、健康检查语义和升级回滚策略
   - 目标：让 `ttl-server` 作为独立应用工程发布、部署、升级和回滚，云端运行环境不依赖 `ttl` 客户端或源码目录。
   - 验收：CI 分别生成可独立下载的 `ttl` 和 `ttl-server` 制品；服务端部署包或最小容器只包含明确的运行文件；配置、密钥、数据卷、日志、健康检查、优雅关闭、TLS 边界和回滚方式有明确约定。
-  - 检查：双二进制跨平台构建、服务端依赖边界测试、发布制品内容检查、独立部署冒烟和回滚演练。
-  - 决策：实现时更新 `docs/decisions/2026-09-12-separate-client-server-layout.md`。
-  - 备注：单仓库和单 Go module 可以保留；能单独编译不作为独立交付完成证据。
+  - 检查：需求/方案/方案评审文档人工核对；核对 CI 当前入口与服务端生命周期现状；方案阶段完成后运行双二进制构建、服务端依赖边界、发布制品内容、独立部署冒烟和回滚演练。
+  - 决策：[`docs/decisions/2026-09-13-server-independent-delivery-baseline.md`](docs/decisions/2026-09-13-server-independent-delivery-baseline.md)（`proposed`）；沿用 [`docs/decisions/2026-09-12-separate-client-server-layout.md`](docs/decisions/2026-09-12-separate-client-server-layout.md) 的应用边界。
+  - 备注：需求和技术方案已按现状补齐，明确 Linux amd64/arm64 服务端 tarball、独立 CI 制品、`/healthz`、优雅关闭、外部 TLS 终止和指针式回滚；当前尚未实现、评审或验收。项目及 Skill 文档统一使用中文，命令、代码标识、路径、协议字段和文件格式保留原文。单仓库和单 Go module 可以保留；能单独编译不作为独立交付完成证据。
 
 - W-012 定义并实现 CLI 可组合性契约
   - 目标：为 `add/get/update/del/tag/dtag` 定义 JSON、非交互、stdin/stdout/stderr、稳定退出码和机器可读错误，服务脚本和自动化场景。
@@ -69,11 +70,27 @@
   - 决策：无需记录，原因：只记录当前实现与已知缺口，不改变架构、协议或用户行为。
   - 备注：已明确 CLI/TUI 是同一客户端、CI 只是 CLI 的运行环境，并记录单账户不分享资源的边界；竞态作为同一账户多进程或多设备的防御性技术风险保留，不代表多人协作范围。关联设计评审见 `docs/reviews/2026-09-12-tui-client-boundary-design.md`。后续实现变化时继续更新本文档，README 中与现状不一致的示例另行处理。
 
+- W-017 重新梳理并收敛客户端与服务端代码结构
+  - 类型：refactor
+  - 优先级：P1
+  - 当前阶段：commit
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-004, W-006
+  - 产物：需求=[`docs/requirements/2026-09-13-W-017-code-structure-convergence.md`](docs/requirements/2026-09-13-W-017-code-structure-convergence.md)；方案=[`docs/tech-designs/2026-09-13-W-017-code-structure-convergence.md`](docs/tech-designs/2026-09-13-W-017-code-structure-convergence.md)；方案评审=[`docs/reviews/2026-09-13-W-017-code-structure-convergence-design.md`](docs/reviews/2026-09-13-W-017-code-structure-convergence-design.md)；代码评审=[`docs/reviews/2026-09-13-W-017-code-structure-convergence-code.md`](docs/reviews/2026-09-13-W-017-code-structure-convergence-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-W-017-code-structure-convergence.md`](docs/task-breakdowns/2026-09-13-W-017-code-structure-convergence.md)；测试=[`docs/tests/2026-09-13-W-017-code-structure-convergence.md`](docs/tests/2026-09-13-W-017-code-structure-convergence.md)；验收=[`docs/acceptance/2026-09-13-W-017-code-structure-convergence.md`](docs/acceptance/2026-09-13-W-017-code-structure-convergence.md)；决策=[`docs/decisions/2026-09-13-code-structure-convergence.md`](docs/decisions/2026-09-13-code-structure-convergence.md)
+  - 阻塞原因：无
+  - 下一步：无；已完成并提交
+  - 目标：以当前代码为事实重新定义并一次性统一客户端、服务端、核心模型、存储和旧兼容包的最终代码边界，消除新旧结构并存造成的维护混乱。
+  - 验收：一次性完成客户端、服务端、核心模型、存储、同步和旧包结构收敛；所有生产/测试消费者迁移，旧包删除，行为和数据格式保持不变，全量回归通过，文档与任务证据同步。
+  - 检查：`gofmt -s -l .`、`go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...`、`go test ./internal/architecture`、`./scripts/regression.sh`、`./scripts/cli-composability.sh`、双二进制构建、`./scripts/verify.sh`、`git diff --check` 均通过。
+  - 决策：[`docs/decisions/2026-09-13-code-structure-convergence.md`](docs/decisions/2026-09-13-code-structure-convergence.md)（`adopted`，一次性切换与最终归属）；方案评审已更新为 `PASS`。
+  - 备注：W-003/W-004/W-006 的历史完成证据不回退；W-017 以当前代码为事实完成一次性结构切换。T-01～T-07 仅表示内部依赖顺序，不产生中间交付物。2026-09-13 owner code review 结论为 `PASS`，实现、测试、交付验收和本地 commit 均已完成；提交：`f27315a`（`refactor: converge client and server package boundaries`）。
 ## Task Format
 
 ```md
 - W-001 简短任务名称
   - 类型：feature | bugfix | refactor | docs | chore | spike | other
+  - 描述：任务背景和要解决的问题
   - 优先级：P0 | P1 | P2 | P3
   - 当前阶段：requirements | design | design_review | breakdown | implementation | tests | delivery_review | commit
   - 阶段清单：按任务实际适用阶段填写，逗号分隔

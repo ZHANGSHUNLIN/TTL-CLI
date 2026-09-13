@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	clientapp "ttl-cli/internal/client/app"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
 
 	"github.com/spf13/cobra"
 )
@@ -223,8 +223,8 @@ func toResourceDTO(resource clientapp.Resource) resourceDTO {
 	}
 }
 
-func resourceKey(key models.ValJsonKey) string {
-	if key.Type == models.TAG && key.OriginKey != "" {
+func resourceKey(key resource.ValJsonKey) string {
+	if key.Type == resource.TAG && key.OriginKey != "" {
 		return key.OriginKey
 	}
 	return key.Key

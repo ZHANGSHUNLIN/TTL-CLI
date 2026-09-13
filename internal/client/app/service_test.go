@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
 )
 
 type trackingStorage struct {
@@ -15,7 +15,7 @@ type trackingStorage struct {
 	historyErr error
 }
 
-func (s *trackingStorage) SaveHistoryRecord(models.HistoryRecord) error {
+func (s *trackingStorage) SaveHistoryRecord(resource.HistoryRecord) error {
 	return s.historyErr
 }
 

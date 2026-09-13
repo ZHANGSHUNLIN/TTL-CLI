@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ttl-cli/db"
 	"ttl-cli/internal/client/remote"
+	ttlsync "ttl-cli/internal/client/sync"
+	"ttl-cli/internal/core/resource"
 	api "ttl-cli/internal/server/api"
-	"ttl-cli/models"
-	ttlsync "ttl-cli/sync"
+	storagebbolt "ttl-cli/internal/storage/bbolt"
 )
 
 func setupServerWithLocalDB(t *testing.T) (serverURL string, cleanup func()) {
@@ -30,21 +30,21 @@ func setupServerWithLocalDB(t *testing.T) (serverURL string, cleanup func()) {
 		t.Fatalf("写入配置文件失败: %v", err)
 	}
 
-	if err := db.InitDB("local", "", "", 0, confPath); err != nil {
+	if err := testDB.InitDB("local", "", "", 0, confPath); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("初始化 server 存储失败: %v", err)
 	}
 
-	srv := httptest.NewServer(api.NewHandler(db.Stor))
+	srv := httptest.NewServer(api.NewHandler(testDB.Stor))
 
 	return srv.URL, func() {
 		srv.Close()
-		_ = db.CloseDB()
+		_ = testDB.CloseDB()
 		_ = os.RemoveAll(tmpDir)
 	}
 }
 
-func setupLocalDB(t *testing.T) (storage *db.LocalStorage, cleanup func()) {
+func setupLocalDB(t *testing.T) (storage *storagebbolt.LocalStorage, cleanup func()) {
 	t.Helper()
 
 	tmpDir, err := os.MkdirTemp("", "ttl-local-*")
@@ -53,7 +53,7 @@ func setupLocalDB(t *testing.T) (storage *db.LocalStorage, cleanup func()) {
 	}
 
 	dbPath := filepath.Join(tmpDir, "local.db")
-	ls := db.NewLocalStorage()
+	ls := storagebbolt.NewLocalStorage()
 	ls.SetDBPath(dbPath)
 
 	if err := ls.Init(); err != nil {
@@ -75,8 +75,8 @@ func TestServerAndCloudStorage_CRUD(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "server-test", Type: models.ORIGIN}
-	val := models.ValJson{Val: "hello-server", Tag: []string{}}
+	key := resource.ValJsonKey{Key: "server-test", Type: resource.ORIGIN}
+	val := resource.ValJson{Val: "hello-server", Tag: []string{}}
 
 	resources, err := cs.GetAllResources()
 	if err != nil {
@@ -101,7 +101,7 @@ func TestServerAndCloudStorage_CRUD(t *testing.T) {
 		t.Errorf("期望 value=hello-server，实际: %s", resources[key].Val)
 	}
 
-	if err := cs.UpdateResource(key, models.ValJson{Val: "updated", Tag: []string{}}); err != nil {
+	if err := cs.UpdateResource(key, resource.ValJson{Val: "updated", Tag: []string{}}); err != nil {
 		t.Fatalf("UpdateResource 失败: %v", err)
 	}
 	resources, _ = cs.GetAllResources()
@@ -126,10 +126,10 @@ func TestServerAndCloudStorage_DuplicateKey(t *testing.T) {
 	_ = cs.Init()
 	defer cs.Close()
 
-	key := models.ValJsonKey{Key: "dup-key", Type: models.ORIGIN}
-	_ = cs.SaveResource(key, models.ValJson{Val: "v1", Tag: []string{}})
+	key := resource.ValJsonKey{Key: "dup-key", Type: resource.ORIGIN}
+	_ = cs.SaveResource(key, resource.ValJson{Val: "v1", Tag: []string{}})
 
-	err := cs.SaveResource(key, models.ValJson{Val: "v2", Tag: []string{}})
+	err := cs.SaveResource(key, resource.ValJson{Val: "v2", Tag: []string{}})
 	if err == nil {
 		t.Fatal("重复 key 保存应返回错误")
 	}
@@ -142,24 +142,24 @@ func TestSyncPullFlow(t *testing.T) {
 	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "remote-a", Type: models.ORIGIN},
-		models.ValJson{Val: "val-a", Tag: []string{}},
+		resource.ValJsonKey{Key: "remote-a", Type: resource.ORIGIN},
+		resource.ValJson{Val: "val-a", Tag: []string{}},
 	)
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "shared", Type: models.ORIGIN},
-		models.ValJson{Val: "remote-ver", Tag: []string{}},
+		resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN},
+		resource.ValJson{Val: "remote-ver", Tag: []string{}},
 	)
 
 	localStorage, localCleanup := setupLocalDB(t)
 	defer localCleanup()
 
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "local-only", Type: models.ORIGIN},
-		models.ValJson{Val: "local-val", Tag: []string{}},
+		resource.ValJsonKey{Key: "local-only", Type: resource.ORIGIN},
+		resource.ValJson{Val: "local-val", Tag: []string{}},
 	)
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "shared", Type: models.ORIGIN},
-		models.ValJson{Val: "local-ver", Tag: []string{}},
+		resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN},
+		resource.ValJson{Val: "local-ver", Tag: []string{}},
 	)
 
 	localRes, _ := localStorage.GetAllResources()
@@ -185,19 +185,19 @@ func TestSyncPullFlow(t *testing.T) {
 
 	finalLocal, _ := localStorage.GetAllResources()
 
-	localOnlyKey := models.ValJsonKey{Key: "local-only", Type: models.ORIGIN}
+	localOnlyKey := resource.ValJsonKey{Key: "local-only", Type: resource.ORIGIN}
 	if _, exists := finalLocal[localOnlyKey]; exists {
 		t.Error("local-only 应被删除")
 	}
 
-	remoteAKey := models.ValJsonKey{Key: "remote-a", Type: models.ORIGIN}
+	remoteAKey := resource.ValJsonKey{Key: "remote-a", Type: resource.ORIGIN}
 	if v, exists := finalLocal[remoteAKey]; !exists {
 		t.Error("remote-a 应被新增到本地")
 	} else if v.Val != "val-a" {
 		t.Errorf("remote-a 值不正确: %s", v.Val)
 	}
 
-	sharedKey := models.ValJsonKey{Key: "shared", Type: models.ORIGIN}
+	sharedKey := resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN}
 	if finalLocal[sharedKey].Val != "remote-ver" {
 		t.Errorf("shared 应为 remote-ver，实际: %s", finalLocal[sharedKey].Val)
 	}
@@ -214,24 +214,24 @@ func TestSyncPushFlow(t *testing.T) {
 	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "remote-only", Type: models.ORIGIN},
-		models.ValJson{Val: "remote-val", Tag: []string{}},
+		resource.ValJsonKey{Key: "remote-only", Type: resource.ORIGIN},
+		resource.ValJson{Val: "remote-val", Tag: []string{}},
 	)
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "shared", Type: models.ORIGIN},
-		models.ValJson{Val: "remote-ver", Tag: []string{}},
+		resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN},
+		resource.ValJson{Val: "remote-ver", Tag: []string{}},
 	)
 
 	localStorage, localCleanup := setupLocalDB(t)
 	defer localCleanup()
 
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "local-a", Type: models.ORIGIN},
-		models.ValJson{Val: "val-a", Tag: []string{}},
+		resource.ValJsonKey{Key: "local-a", Type: resource.ORIGIN},
+		resource.ValJson{Val: "val-a", Tag: []string{}},
 	)
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "shared", Type: models.ORIGIN},
-		models.ValJson{Val: "local-ver", Tag: []string{}},
+		resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN},
+		resource.ValJson{Val: "local-ver", Tag: []string{}},
 	)
 
 	localRes, _ := localStorage.GetAllResources()
@@ -244,19 +244,19 @@ func TestSyncPushFlow(t *testing.T) {
 
 	finalRemote, _ := cs.GetAllResources()
 
-	remoteOnlyKey := models.ValJsonKey{Key: "remote-only", Type: models.ORIGIN}
+	remoteOnlyKey := resource.ValJsonKey{Key: "remote-only", Type: resource.ORIGIN}
 	if _, exists := finalRemote[remoteOnlyKey]; exists {
 		t.Error("remote-only 应被删除")
 	}
 
-	localAKey := models.ValJsonKey{Key: "local-a", Type: models.ORIGIN}
+	localAKey := resource.ValJsonKey{Key: "local-a", Type: resource.ORIGIN}
 	if v, exists := finalRemote[localAKey]; !exists {
 		t.Error("local-a 应被推送到远程")
 	} else if v.Val != "val-a" {
 		t.Errorf("local-a 值不正确: %s", v.Val)
 	}
 
-	sharedKey := models.ValJsonKey{Key: "shared", Type: models.ORIGIN}
+	sharedKey := resource.ValJsonKey{Key: "shared", Type: resource.ORIGIN}
 	if finalRemote[sharedKey].Val != "local-ver" {
 		t.Errorf("shared 应为 local-ver，实际: %s", finalRemote[sharedKey].Val)
 	}
@@ -273,15 +273,15 @@ func TestSyncDryRun_NoChanges(t *testing.T) {
 	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "remote-res", Type: models.ORIGIN},
-		models.ValJson{Val: "rv", Tag: []string{}},
+		resource.ValJsonKey{Key: "remote-res", Type: resource.ORIGIN},
+		resource.ValJson{Val: "rv", Tag: []string{}},
 	)
 
 	localStorage, localCleanup := setupLocalDB(t)
 	defer localCleanup()
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "local-res", Type: models.ORIGIN},
-		models.ValJson{Val: "lv", Tag: []string{}},
+		resource.ValJsonKey{Key: "local-res", Type: resource.ORIGIN},
+		resource.ValJson{Val: "lv", Tag: []string{}},
 	)
 
 	localRes, _ := localStorage.GetAllResources()
@@ -294,7 +294,7 @@ func TestSyncDryRun_NoChanges(t *testing.T) {
 	if len(finalLocal) != 1 {
 		t.Errorf("dry-run 后本地应仍为 1 个资源，实际: %d", len(finalLocal))
 	}
-	localKey := models.ValJsonKey{Key: "local-res", Type: models.ORIGIN}
+	localKey := resource.ValJsonKey{Key: "local-res", Type: resource.ORIGIN}
 	if _, exists := finalLocal[localKey]; !exists {
 		t.Error("dry-run 不应删除本地资源")
 	}
@@ -312,15 +312,15 @@ func TestSyncAlreadyInSync(t *testing.T) {
 	cs := remote.NewStorage(serverURL, "", 30)
 	_ = cs.Init()
 	_ = cs.SaveResource(
-		models.ValJsonKey{Key: "same", Type: models.ORIGIN},
-		models.ValJson{Val: "value", Tag: []string{}},
+		resource.ValJsonKey{Key: "same", Type: resource.ORIGIN},
+		resource.ValJson{Val: "value", Tag: []string{}},
 	)
 
 	localStorage, localCleanup := setupLocalDB(t)
 	defer localCleanup()
 	_ = localStorage.SaveResource(
-		models.ValJsonKey{Key: "same", Type: models.ORIGIN},
-		models.ValJson{Val: "value", Tag: []string{}},
+		resource.ValJsonKey{Key: "same", Type: resource.ORIGIN},
+		resource.ValJson{Val: "value", Tag: []string{}},
 	)
 
 	localRes, _ := localStorage.GetAllResources()

@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"ttl-cli/command"
-	"ttl-cli/db"
-	"ttl-cli/models"
+	command "ttl-cli/internal/client/cli/commands"
+	"ttl-cli/internal/core/resource"
 )
 
 func parseCSV(t *testing.T, data []byte) [][]string {
@@ -27,16 +26,16 @@ func TestExportResourcesCSV(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(
-		models.ValJsonKey{Key: "github", Type: models.ORIGIN},
-		models.ValJson{Val: "https://github.com", Tag: []string{"dev", "work"}},
+	_ = testDB.SaveResource(
+		resource.ValJsonKey{Key: "github", Type: resource.ORIGIN},
+		resource.ValJson{Val: "https://github.com", Tag: []string{"dev", "work"}},
 	)
-	_ = db.SaveResource(
-		models.ValJsonKey{Key: "note", Type: models.ORIGIN},
-		models.ValJson{Val: "hello world", Tag: []string{}},
+	_ = testDB.SaveResource(
+		resource.ValJsonKey{Key: "note", Type: resource.ORIGIN},
+		resource.ValJson{Val: "hello world", Tag: []string{}},
 	)
 
-	resources, err := db.GetAllResources()
+	resources, err := testDB.GetAllResources()
 	if err != nil {
 		t.Fatalf("GetAllResources() 失败: %v", err)
 	}
@@ -92,7 +91,7 @@ func TestExportEmptyResources(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	resources, _ := db.GetAllResources()
+	resources, _ := testDB.GetAllResources()
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
 	count, err := command.WriteResourcesCSV(w, resources)
@@ -117,10 +116,10 @@ func TestExportAuditCSV(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.RecordAudit("mykey", "add")
-	_ = db.RecordAudit("mykey", "get")
+	_ = testDB.RecordAudit("mykey", "add")
+	_ = testDB.RecordAudit("mykey", "get")
 
-	records, err := db.GetAllAuditRecords()
+	records, err := testDB.GetAllAuditRecords()
 	if err != nil {
 		t.Fatalf("GetAllAuditRecords() 失败: %v", err)
 	}
@@ -157,11 +156,11 @@ func TestExportHistoryCSV(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.RecordCommandHistory("add", "keyA", false)
+	_ = testDB.RecordCommandHistory("add", "keyA", false)
 	time.Sleep(time.Millisecond)
-	_ = db.RecordCommandHistory("get", "keyB", false)
+	_ = testDB.RecordCommandHistory("get", "keyB", false)
 
-	histRecords, err := db.GetAllHistoryRecords()
+	histRecords, err := testDB.GetAllHistoryRecords()
 	if err != nil {
 		t.Fatalf("GetAllHistoryRecords() 失败: %v", err)
 	}
@@ -190,7 +189,7 @@ func TestExportBOM(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	resources, _ := db.GetAllResources()
+	resources, _ := testDB.GetAllResources()
 	var buf bytes.Buffer
 
 	buf.Write([]byte{0xEF, 0xBB, 0xBF})

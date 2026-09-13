@@ -47,11 +47,30 @@ func TestServerBinary_DependencyBoundary(t *testing.T) {
 	for _, pkg := range packages {
 		for _, dependency := range append(pkg.Imports, pkg.Deps...) {
 			if strings.HasPrefix(dependency, "ttl-cli/internal/client/") ||
-				dependency == "ttl-cli/command" ||
+				dependency == "ttl-cli/internal/client/cli/commands" ||
 				dependency == "ttl-cli/db" ||
-				dependency == "ttl-cli/sync" {
+				dependency == "ttl-cli/internal/client/sync" {
 				t.Errorf("server binary %s depends on forbidden package %s", pkg.ImportPath, dependency)
 			}
+		}
+	}
+}
+
+func TestLegacyPackagesRemoved(t *testing.T) {
+	packages := listPackages(t, "../...", "../../cmd/ttl", "../../cmd/ttl-server")
+	legacy := map[string]bool{
+		"ttl-cli/command": true,
+		"ttl-cli/models":  true,
+		"ttl-cli/db":      true,
+		"ttl-cli/sync":    true,
+		"ttl-cli/conf":    true,
+		"ttl-cli/crypto":  true,
+		"ttl-cli/i18n":    true,
+		"ttl-cli/util":    true,
+	}
+	for _, pkg := range packages {
+		if legacy[pkg.ImportPath] {
+			t.Errorf("legacy package still exists: %s", pkg.ImportPath)
 		}
 	}
 }

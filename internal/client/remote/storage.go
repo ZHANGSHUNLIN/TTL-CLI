@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
 )
 
 var _ corestorage.Storage = (*Storage)(nil)
@@ -96,7 +96,7 @@ func (s *Storage) doRequest(method, path string, body any) (*apiResponse, error)
 	return &apiResp, nil
 }
 
-func (s *Storage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
+func (s *Storage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
 	apiResp, err := s.doRequest(http.MethodGet, "/api/v1/resources", nil)
 	if err != nil {
 		return nil, err
@@ -107,20 +107,20 @@ func (s *Storage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error
 	}
 	sort.Slice(dtos, func(i, j int) bool { return dtos[i].CreatedAt > dtos[j].CreatedAt })
 
-	resources := make(map[models.ValJsonKey]models.ValJson, len(dtos))
+	resources := make(map[resource.ValJsonKey]resource.ValJson, len(dtos))
 	for _, dto := range dtos {
 		tags := dto.Tags
 		if tags == nil {
 			tags = []string{}
 		}
-		resources[models.ValJsonKey{Key: dto.Key, Type: models.ORIGIN}] = models.ValJson{
+		resources[resource.ValJsonKey{Key: dto.Key, Type: resource.ORIGIN}] = resource.ValJson{
 			Val: dto.Value, Tag: tags, CreatedAt: dto.CreatedAt, UpdatedAt: dto.UpdatedAt,
 		}
 	}
 	return resources, nil
 }
 
-func (s *Storage) SaveResource(key models.ValJsonKey, value models.ValJson) error {
+func (s *Storage) SaveResource(key resource.ValJsonKey, value resource.ValJson) error {
 	body := map[string]any{
 		"key": key.Key, "value": value.Val, "tags": value.Tag,
 		"createdAt": value.CreatedAt, "updatedAt": time.Now().Unix(),
@@ -129,24 +129,24 @@ func (s *Storage) SaveResource(key models.ValJsonKey, value models.ValJson) erro
 	return err
 }
 
-func (s *Storage) DeleteResource(key models.ValJsonKey) error {
+func (s *Storage) DeleteResource(key resource.ValJsonKey) error {
 	_, err := s.doRequest(http.MethodDelete, "/api/v1/resources/"+key.Key, nil)
 	return err
 }
 
-func (s *Storage) UpdateResource(key models.ValJsonKey, value models.ValJson) error {
+func (s *Storage) UpdateResource(key resource.ValJsonKey, value resource.ValJson) error {
 	_, err := s.doRequest(http.MethodPut, "/api/v1/resources/"+key.Key, map[string]string{"value": value.Val})
 	return err
 }
 
-func (s *Storage) GetTagStats() ([]models.TagStat, error) {
+func (s *Storage) GetTagStats() ([]resource.TagStat, error) {
 	resources, err := s.GetAllResources()
 	if err != nil {
 		return nil, err
 	}
-	tagMap := make(map[string]models.TagStat)
+	tagMap := make(map[string]resource.TagStat)
 	for key, value := range resources {
-		if key.Type != models.ORIGIN {
+		if key.Type != resource.ORIGIN {
 			continue
 		}
 		for _, tag := range value.Tag {
@@ -157,7 +157,7 @@ func (s *Storage) GetTagStats() ([]models.TagStat, error) {
 			tagMap[tag] = stat
 		}
 	}
-	stats := make([]models.TagStat, 0, len(tagMap))
+	stats := make([]resource.TagStat, 0, len(tagMap))
 	for _, stat := range tagMap {
 		stats = append(stats, stat)
 	}
@@ -165,47 +165,47 @@ func (s *Storage) GetTagStats() ([]models.TagStat, error) {
 	return stats, nil
 }
 
-func (s *Storage) SaveAuditRecord(models.AuditRecord) error { return nil }
+func (s *Storage) SaveAuditRecord(resource.AuditRecord) error { return nil }
 
-func (s *Storage) GetAuditStats() (models.AuditStats, error) {
+func (s *Storage) GetAuditStats() (resource.AuditStats, error) {
 	apiResp, err := s.doRequest(http.MethodGet, "/api/v1/audit/stats", nil)
 	if err != nil {
-		return models.AuditStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, err
+		return resource.AuditStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, err
 	}
-	var stats models.AuditStats
+	var stats resource.AuditStats
 	if err := json.Unmarshal(apiResp.Data, &stats); err != nil {
-		return models.AuditStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, err
+		return resource.AuditStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, err
 	}
 	return stats, nil
 }
 
 func (s *Storage) DeleteAuditRecords(string) error { return nil }
-func (s *Storage) GetAllAuditRecords() ([]models.AuditRecord, error) {
-	return []models.AuditRecord{}, nil
+func (s *Storage) GetAllAuditRecords() ([]resource.AuditRecord, error) {
+	return []resource.AuditRecord{}, nil
 }
-func (s *Storage) SaveHistoryRecord(models.HistoryRecord) error { return nil }
+func (s *Storage) SaveHistoryRecord(resource.HistoryRecord) error { return nil }
 
-func (s *Storage) GetAllHistoryRecords() ([]models.HistoryRecord, error) {
+func (s *Storage) GetAllHistoryRecords() ([]resource.HistoryRecord, error) {
 	apiResp, err := s.doRequest(http.MethodGet, "/api/v1/history", nil)
 	if err != nil {
-		return []models.HistoryRecord{}, err
+		return []resource.HistoryRecord{}, err
 	}
-	var records []models.HistoryRecord
+	var records []resource.HistoryRecord
 	if err := json.Unmarshal(apiResp.Data, &records); err != nil {
-		return []models.HistoryRecord{}, err
+		return []resource.HistoryRecord{}, err
 	}
 	return records, nil
 }
 
-func (s *Storage) GetHistoryRecord(int, models.SortOrder) (models.HistoryRecord, error) {
-	return models.HistoryRecord{}, fmt.Errorf("云端存储不支持按索引获取历史记录")
+func (s *Storage) GetHistoryRecord(int, resource.SortOrder) (resource.HistoryRecord, error) {
+	return resource.HistoryRecord{}, fmt.Errorf("云端存储不支持按索引获取历史记录")
 }
-func (s *Storage) GetHistoryStats() (models.HistoryStats, error) {
-	return models.HistoryStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, nil
+func (s *Storage) GetHistoryStats() (resource.HistoryStats, error) {
+	return resource.HistoryStats{ByOperation: map[string]int{}, ByResource: map[string]int{}}, nil
 }
-func (s *Storage) DeleteHistoryRecords(string) error    { return nil }
-func (s *Storage) SaveLogRecord(models.LogRecord) error { return nil }
-func (s *Storage) GetLogRecords(string, string) ([]models.LogRecord, error) {
-	return []models.LogRecord{}, nil
+func (s *Storage) DeleteHistoryRecords(string) error      { return nil }
+func (s *Storage) SaveLogRecord(resource.LogRecord) error { return nil }
+func (s *Storage) GetLogRecords(string, string) ([]resource.LogRecord, error) {
+	return []resource.LogRecord{}, nil
 }
 func (s *Storage) DeleteLogRecord(int64) error { return nil }

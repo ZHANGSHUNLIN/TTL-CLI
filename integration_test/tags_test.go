@@ -4,28 +4,28 @@ import (
 	"os"
 	"testing"
 
-	"ttl-cli/db"
-	"ttl-cli/models"
+	"ttl-cli/internal/core/resource"
+	storagebbolt "ttl-cli/internal/storage/bbolt"
 )
 
 var (
-	testKey1 = models.ValJsonKey{Key: "test-resource-1", Type: models.ORIGIN}
-	testVal1 = models.ValJson{Val: "value1", Tag: []string{"work", "dev"}}
-	testKey2 = models.ValJsonKey{Key: "test-resource-2", Type: models.ORIGIN}
-	testVal2 = models.ValJson{Val: "value2", Tag: []string{"work", "ci"}}
-	testKey3 = models.ValJsonKey{Key: "test-resource-3", Type: models.ORIGIN}
-	testVal3 = models.ValJson{Val: "value3", Tag: []string{"deploy"}}
+	testKey1 = resource.ValJsonKey{Key: "test-resource-1", Type: resource.ORIGIN}
+	testVal1 = resource.ValJson{Val: "value1", Tag: []string{"work", "dev"}}
+	testKey2 = resource.ValJsonKey{Key: "test-resource-2", Type: resource.ORIGIN}
+	testVal2 = resource.ValJson{Val: "value2", Tag: []string{"work", "ci"}}
+	testKey3 = resource.ValJsonKey{Key: "test-resource-3", Type: resource.ORIGIN}
+	testVal3 = resource.ValJson{Val: "value3", Tag: []string{"deploy"}}
 )
 
 func TestTagsList(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(testKey1, testVal1)
-	_ = db.SaveResource(testKey2, testVal2)
-	_ = db.SaveResource(testKey3, testVal3)
+	_ = testDB.SaveResource(testKey1, testVal1)
+	_ = testDB.SaveResource(testKey2, testVal2)
+	_ = testDB.SaveResource(testKey3, testVal3)
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestTagsEmpty(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -71,10 +71,10 @@ func TestTagsSortOrder(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "z-test", Type: models.ORIGIN}, models.ValJson{Val: "value", Tag: []string{"zebra"}})
-	_ = db.SaveResource(models.ValJsonKey{Key: "a-test", Type: models.ORIGIN}, models.ValJson{Val: "value", Tag: []string{"alpha"}})
+	_ = testDB.SaveResource(resource.ValJsonKey{Key: "z-test", Type: resource.ORIGIN}, resource.ValJson{Val: "value", Tag: []string{"zebra"}})
+	_ = testDB.SaveResource(resource.ValJsonKey{Key: "a-test", Type: resource.ORIGIN}, resource.ValJson{Val: "value", Tag: []string{"alpha"}})
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -96,12 +96,12 @@ func TestTagsWithMultipleResources(t *testing.T) {
 	defer cleanup()
 
 	for i := 0; i < 5; i++ {
-		key := models.ValJsonKey{Key: "res-" + string(rune('a'+i)), Type: models.ORIGIN}
-		val := models.ValJson{Val: "value", Tag: []string{"common"}}
-		_ = db.SaveResource(key, val)
+		key := resource.ValJsonKey{Key: "res-" + string(rune('a'+i)), Type: resource.ORIGIN}
+		val := resource.ValJson{Val: "value", Tag: []string{"common"}}
+		_ = testDB.SaveResource(key, val)
 	}
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -123,10 +123,10 @@ func TestTagsWithNoTagResources(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(models.ValJsonKey{Key: "no-tag-1", Type: models.ORIGIN}, models.ValJson{Val: "value", Tag: []string{}})
-	_ = db.SaveResource(models.ValJsonKey{Key: "no-tag-2", Type: models.ORIGIN}, models.ValJson{Val: "value", Tag: []string{}})
+	_ = testDB.SaveResource(resource.ValJsonKey{Key: "no-tag-1", Type: resource.ORIGIN}, resource.ValJson{Val: "value", Tag: []string{}})
+	_ = testDB.SaveResource(resource.ValJsonKey{Key: "no-tag-2", Type: resource.ORIGIN}, resource.ValJson{Val: "value", Tag: []string{}})
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -140,10 +140,10 @@ func TestTagTypesExcluded(t *testing.T) {
 	cleanup := setupTempStorage(t)
 	defer cleanup()
 
-	_ = db.SaveResource(testKey1, testVal1)
-	_ = db.SaveResource(models.ValJsonKey{Key: "tag-type", Type: models.TAG, OriginKey: testKey1.Key}, models.ValJson{Val: "value"})
+	_ = testDB.SaveResource(testKey1, testVal1)
+	_ = testDB.SaveResource(resource.ValJsonKey{Key: "tag-type", Type: resource.TAG, OriginKey: testKey1.Key}, resource.ValJson{Val: "value"})
 
-	stats, err := db.GetTagStats()
+	stats, err := testDB.GetTagStats()
 	if err != nil {
 		t.Fatalf("GetTagStats failed: %v", err)
 	}
@@ -153,10 +153,10 @@ func TestTagTypesExcluded(t *testing.T) {
 	}
 }
 
-func testKey(prefix string, i int) models.ValJsonKey {
-	return models.ValJsonKey{
+func testKey(prefix string, i int) resource.ValJsonKey {
+	return resource.ValJsonKey{
 		Key:  prefix + "-" + string(rune('a'+i)),
-		Type: models.ORIGIN,
+		Type: resource.ORIGIN,
 	}
 }
 
@@ -175,15 +175,15 @@ func TestGetTagStats_FileStorageOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ls := db.NewLocalStorage()
+	ls := storagebbolt.NewLocalStorage()
 	ls.SetDBPath(testDB)
 	if err := ls.Init(); err != nil {
 		t.Fatal(err)
 	}
 	defer ls.Close()
 
-	key1 := models.ValJsonKey{Key: "file-test-1", Type: models.ORIGIN}
-	val1 := models.ValJson{Val: "value1", Tag: []string{"file-tag"}}
+	key1 := resource.ValJsonKey{Key: "file-test-1", Type: resource.ORIGIN}
+	val1 := resource.ValJson{Val: "value1", Tag: []string{"file-tag"}}
 	if err := ls.SaveResource(key1, val1); err != nil {
 		t.Fatal(err)
 	}

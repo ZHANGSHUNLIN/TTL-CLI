@@ -9,19 +9,19 @@ import (
 	"testing"
 
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	"ttl-cli/models"
 
 	"github.com/spf13/cobra"
 )
 
 type pickStorage struct {
 	corestorage.Storage
-	resources map[models.ValJsonKey]models.ValJson
+	resources map[resource.ValJsonKey]resource.ValJson
 }
 
-func (s *pickStorage) GetAllResources() (map[models.ValJsonKey]models.ValJson, error) {
-	result := make(map[models.ValJsonKey]models.ValJson, len(s.resources))
+func (s *pickStorage) GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
+	result := make(map[resource.ValJsonKey]resource.ValJson, len(s.resources))
 	for key, value := range s.resources {
 		result[key] = value
 	}
@@ -48,8 +48,8 @@ func newPickTestCommand(storage *pickStorage, input io.Reader, terminal bool) (*
 }
 
 func TestPickCommand_SingleMatchKeepsStdoutCleanAndNormalizesNewline(t *testing.T) {
-	storage := &pickStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "note", Type: models.ORIGIN}: {Val: "value\n\n", CreatedAt: 1},
+	storage := &pickStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "note", Type: resource.ORIGIN}: {Val: "value\n\n", CreatedAt: 1},
 	}}
 	cmd, stdout, stderr := newPickTestCommand(storage, &readFailReader{}, false)
 	cmd.SetArgs([]string{"note"})
@@ -65,9 +65,9 @@ func TestPickCommand_SingleMatchKeepsStdoutCleanAndNormalizesNewline(t *testing.
 }
 
 func TestPickCommand_MultipleMatchesWritesCandidatesToStderr(t *testing.T) {
-	storage := &pickStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "older", Type: models.ORIGIN}: {Val: "old", CreatedAt: 1},
-		{Key: "newer", Type: models.ORIGIN}: {Val: "new", CreatedAt: 2},
+	storage := &pickStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "older", Type: resource.ORIGIN}: {Val: "old", CreatedAt: 1},
+		{Key: "newer", Type: resource.ORIGIN}: {Val: "new", CreatedAt: 2},
 	}}
 	cmd, stdout, stderr := newPickTestCommand(storage, strings.NewReader("2\n"), true)
 	cmd.SetArgs([]string{""})
@@ -97,9 +97,9 @@ func TestPickCommand_InvalidChoiceAndCancellationHaveStableCodes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := &pickStorage{resources: map[models.ValJsonKey]models.ValJson{
-				{Key: "a", Type: models.ORIGIN}: {Val: "a", CreatedAt: 1},
-				{Key: "b", Type: models.ORIGIN}: {Val: "b", CreatedAt: 2},
+			storage := &pickStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+				{Key: "a", Type: resource.ORIGIN}: {Val: "a", CreatedAt: 1},
+				{Key: "b", Type: resource.ORIGIN}: {Val: "b", CreatedAt: 2},
 			}}
 			cmd, stdout, _ := newPickTestCommand(storage, strings.NewReader(test.in), true)
 			cmd.SetArgs([]string{})
@@ -115,9 +115,9 @@ func TestPickCommand_InvalidChoiceAndCancellationHaveStableCodes(t *testing.T) {
 }
 
 func TestPickCommand_NoTTYFailsBeforeReadingInput(t *testing.T) {
-	storage := &pickStorage{resources: map[models.ValJsonKey]models.ValJson{
-		{Key: "a", Type: models.ORIGIN}: {Val: "a", CreatedAt: 1},
-		{Key: "b", Type: models.ORIGIN}: {Val: "b", CreatedAt: 2},
+	storage := &pickStorage{resources: map[resource.ValJsonKey]resource.ValJson{
+		{Key: "a", Type: resource.ORIGIN}: {Val: "a", CreatedAt: 1},
+		{Key: "b", Type: resource.ORIGIN}: {Val: "b", CreatedAt: 2},
 	}}
 	cmd, stdout, _ := newPickTestCommand(storage, &readFailReader{}, false)
 	cmd.SetArgs([]string{})
@@ -131,7 +131,7 @@ func TestPickCommand_NoTTYFailsBeforeReadingInput(t *testing.T) {
 }
 
 func TestPickCommand_EmptyResultIsNotFound(t *testing.T) {
-	cmd, stdout, _ := newPickTestCommand(&pickStorage{resources: map[models.ValJsonKey]models.ValJson{}}, strings.NewReader(""), false)
+	cmd, stdout, _ := newPickTestCommand(&pickStorage{resources: map[resource.ValJsonKey]resource.ValJson{}}, strings.NewReader(""), false)
 	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	if err == nil || mapCLIError(err).code != "not_found" {
