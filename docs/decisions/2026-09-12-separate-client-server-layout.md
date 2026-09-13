@@ -1,7 +1,7 @@
 # Separate Client And Server Layout
 
 日期：2026-09-12
-状态：adopted（源码边界已采用；云端独立交付由 W-010 跟踪）
+状态：adopted（源码边界和 W-010 云端独立交付均已采用）
 任务：W-004、W-006、W-010
 
 ## 背景

@@ -69,4 +69,4 @@ T-01 和 T-02 在方案通过后可独立测试；T-03 必须使用前两项确�
 - `./scripts/verify.sh` 已通过，覆盖双二进制构建、交付冒烟、升级回滚、架构检查、CLI 黑盒
   回归、全量测试、集成测试、race 和 vet。
 - `scripts/server-delivery-smoke.sh` 和 `scripts/server-upgrade-rollback-smoke.sh` 已通过。
-- 测试环境验收已通过，任务进入 commit 门禁；不得在本地 commit 创建并补充提交证据前标记 Done。
+- 测试环境验收已通过，代码已提交为 `5cbf3a3`，任务完成并归档。

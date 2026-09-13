@@ -65,5 +65,6 @@ bash -n scripts/*.sh
 
 ## 放行结论
 
-代码变更通过 owner review，测试环境验收也已完成，可以进入本地 commit 门禁。真实 tag
-制品核对和生产环境外部 TLS 配置属于后续交付核对，不影响本次测试环境验收结论。
+代码变更通过 owner review，测试环境验收也已完成，并已提交为 `5cbf3a3`
+（`feat: establish independent server delivery`）。真实 tag 制品核对和生产环境外部 TLS
+配置属于后续交付核对，不影响本次测试环境验收结论。

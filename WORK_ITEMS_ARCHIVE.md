@@ -10,6 +10,23 @@
 
 ## Done
 
+- [x] W-010 建立云端服务独立交付链路
+  - 类型：feature
+  - 描述：把 `ttl-server` 从“能编译的服务端入口”准备成可独立构建、发布、部署、探活、升级和回滚的云端服务制品。
+  - 优先级：P1
+  - 当前阶段：commit
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-004,W-006,W-017
+  - 产物：需求=[`docs/requirements/2026-09-13-server-independent-delivery.md`](docs/requirements/2026-09-13-server-independent-delivery.md)；方案=[`docs/tech-designs/2026-09-13-server-independent-delivery.md`](docs/tech-designs/2026-09-13-server-independent-delivery.md)；评审=[`docs/reviews/2026-09-13-server-independent-delivery-design.md`](docs/reviews/2026-09-13-server-independent-delivery-design.md)（`PASS`）；代码评审=[`docs/reviews/2026-09-13-server-independent-delivery-code.md`](docs/reviews/2026-09-13-server-independent-delivery-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-server-independent-delivery.md`](docs/task-breakdowns/2026-09-13-server-independent-delivery.md)；测试=[`docs/tests/2026-09-13-server-independent-delivery.md`](docs/tests/2026-09-13-server-independent-delivery.md)；验收=[`docs/acceptance/2026-09-13-server-independent-delivery.md`](docs/acceptance/2026-09-13-server-independent-delivery.md)；部署=[`docs/server-deployment.md`](docs/server-deployment.md)；决策=[`docs/decisions/2026-09-13-server-independent-delivery-baseline.md`](docs/decisions/2026-09-13-server-independent-delivery-baseline.md)（`adopted`）；提交：`5cbf3a3`（`feat: establish independent server delivery`）
+  - 阻塞原因：无
+  - 下一步：无；已完成并提交
+  - 目标：让 `ttl-server` 作为独立应用工程发布、部署、升级和回滚，云端运行环境不依赖 `ttl` 客户端或源码目录。
+  - 验收：CI 分别生成可独立下载的 `ttl` 和 `ttl-server` 制品；服务端部署包或最小容器只包含明确的运行文件；配置、密钥、数据卷、日志、健康检查、优雅关闭、TLS 边界和回滚方式有明确约定。
+  - 检查：`./scripts/verify.sh`、`scripts/server-delivery-smoke.sh`、`scripts/server-upgrade-rollback-smoke.sh`、双二进制构建、`go test ./internal/server/...`、`git diff --check`、`jq empty WORK_ITEMS.json`、locale JSON 校验、`bash -n scripts/*.sh` 和 CI/release YAML 解析均已通过；远程 Debian/systemd 部署、健康检查、重启后认证 API 和私有地址直连边界已验证，真实 tag 制品清单和外部 TLS 确认待补。
+  - 决策：[`docs/decisions/2026-09-13-server-independent-delivery-baseline.md`](docs/decisions/2026-09-13-server-independent-delivery-baseline.md)（`adopted`）；沿用 [`docs/decisions/2026-09-12-separate-client-server-layout.md`](docs/decisions/2026-09-12-separate-client-server-layout.md) 的应用边界。
+  - 备注：方案评审、T-01～T-04 实现、自动验证、远程 systemd 部署演练、测试环境验收和 owner 代码评审均已完成；`./scripts/verify.sh` 于 2026-09-13 复跑通过，提交 `5cbf3a3` 后完成收尾并归档。生产外部 TLS 和真实 tag 制品核对属于后续交付项，不阻塞本次测试环境完成结论。项目及 Skill 文档统一使用中文，命令、代码标识、路径、协议字段和文件格式保留原文。单仓库和单 Go module 可以保留；能单独编译不作为独立交付完成证据。
+
 - [x] W-007 实现基础 TUI 本地资源闭环
   - 类型：feature
   - 优先级：P1
