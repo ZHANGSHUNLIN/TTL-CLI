@@ -84,7 +84,7 @@
   - 验收：一次性完成客户端、服务端、核心模型、存储、同步和旧包结构收敛；所有生产/测试消费者迁移，旧包删除，行为和数据格式保持不变，全量回归通过，文档与任务证据同步。
   - 检查：`gofmt -s -l .`、`go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...`、`go test ./internal/architecture`、`./scripts/regression.sh`、`./scripts/cli-composability.sh`、双二进制构建、`./scripts/verify.sh`、`git diff --check` 均通过。
   - 决策：[`docs/decisions/2026-09-13-code-structure-convergence.md`](docs/decisions/2026-09-13-code-structure-convergence.md)（`adopted`，一次性切换与最终归属）；方案评审已更新为 `PASS`。
-  - 备注：W-003/W-004/W-006 的历史完成证据不回退；W-017 以当前代码为事实完成一次性结构切换。T-01～T-07 仅表示内部依赖顺序，不产生中间交付物。2026-09-13 owner code review 结论为 `PASS`，实现、测试、交付验收和本地 commit 均已完成；提交：`f27315a`（`refactor: converge client and server package boundaries`）。
+  - 备注：W-003/W-004/W-006 的历史完成证据不回退；W-017 以当前代码为事实完成一次性结构切换。T-01～T-07 仅表示内部依赖顺序，不产生中间交付物。2026-09-13 owner code review 结论为 `PASS`，实现、测试、交付验收和本地 commit 均已完成；提交：`3ca3dcb`（`refactor: converge client and server package boundaries`）。
 ## Task Format
 
 ```md
