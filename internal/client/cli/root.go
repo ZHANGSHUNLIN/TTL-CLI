@@ -29,18 +29,19 @@ type terminalDetector func(io.Reader, io.Writer) bool
 type tuiRunner func(clienttui.ResourceService, clienttui.RunOptions) error
 
 type options struct {
-	debug          bool
-	json           bool
-	nonInteractive bool
-	storageType    string
-	cloudAPIURL    string
-	cloudAPIKey    string
-	cloudTimeout   int
-	confFile       string
-	service        *clientapp.Service
-	openStorage    storageOpener
-	isTerminal     terminalDetector
-	runTUI         tuiRunner
+	debug               bool
+	json                bool
+	nonInteractive      bool
+	storageType         string
+	cloudAPIURL         string
+	cloudAPIKey         string
+	cloudTimeout        int
+	confFile            string
+	service             *clientapp.Service
+	openStorage         storageOpener
+	isTerminal          terminalDetector
+	runTUI              tuiRunner
+	diagnosticsToStderr bool
 }
 
 type runResult struct {
@@ -76,6 +77,7 @@ func newRootCommand(opts *options) *cobra.Command {
 		command.InitCmd,
 		newAddCommand(opts),
 		newGetCommand(opts),
+		newPickCommand(opts),
 		command.OpenCmd,
 		newUpdateCommand(opts),
 		newDeleteCommand(opts),
@@ -138,12 +140,16 @@ func Run() int {
 }
 
 func executeRoot(root *cobra.Command, opts *options, args []string, requestedJSON bool, jsonOutput *bytes.Buffer) (result runResult) {
+	opts.diagnosticsToStderr = commandFromArgs(args) == "pick"
+	if opts.diagnosticsToStderr {
+		root.SilenceUsage = true
+	}
 	defer func() {
 		if requestedJSON && result.exitCode == exitSuccess {
 			result.stdout = append([]byte(nil), jsonOutput.Bytes()...)
 		}
 	}()
-	root.SetArgs(args)
+	root.SetArgs(normalizeGetValueAlias(args))
 	executeErr := root.Execute()
 	requestedNonInteractive := boolFlagEnabled(args, "--non-interactive")
 	if executeErr != nil && (requestedJSON || requestedNonInteractive) {
@@ -163,12 +169,64 @@ func executeRoot(root *cobra.Command, opts *options, args []string, requestedJSO
 			}
 		} else if machineMode {
 			fmt.Fprintln(root.ErrOrStderr(), executeErr)
+		} else if opts.diagnosticsToStderr {
+			fmt.Fprintln(root.ErrOrStderr(), executeErr)
 		} else {
 			fmt.Fprintln(root.OutOrStdout(), executeErr)
 		}
 		return runResult{exitCode: exitCodeFor(executeErr, machineMode)}
 	}
 	return runResult{exitCode: exitSuccess}
+}
+
+func normalizeGetValueAlias(args []string) []string {
+	if commandFromArgs(args) != "get" {
+		return args
+	}
+	result := append([]string(nil), args...)
+	for index, arg := range result {
+		if arg == "--" {
+			break
+		}
+		if arg == "-val" {
+			result[index] = "--value"
+		}
+	}
+	return result
+}
+
+func commandFromArgs(args []string) string {
+	withValue := map[string]bool{
+		"--storage":       true,
+		"--cloud-url":     true,
+		"--cloud-key":     true,
+		"--cloud-timeout": true,
+		"--conf":          true,
+	}
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
+		if arg == "--" {
+			if index+1 < len(args) {
+				return args[index+1]
+			}
+			return ""
+		}
+		if strings.HasPrefix(arg, "--") {
+			name := arg
+			if separator := strings.IndexByte(name, '='); separator >= 0 {
+				name = name[:separator]
+			}
+			if withValue[name] && !strings.Contains(arg, "=") {
+				index++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		return arg
+	}
+	return ""
 }
 
 func mergeCloseError(root *cobra.Command, opts *options, executeErr error) error {
@@ -211,6 +269,7 @@ func boolFlagEnabled(args []string, target string) bool {
 
 func newPreRun(opts *options) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		opts.diagnosticsToStderr = cmd.Name() == "pick"
 		mode := invocationMode{json: opts.json, nonInteractive: opts.nonInteractive || opts.json}
 		ctx := context.WithValue(cmd.Context(), machineModeKey{}, mode)
 		cmd.SetContext(ctx)
@@ -269,7 +328,9 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 				return fmt.Errorf(i18n.T("error.init_db"), err)
 			}
 			opts.service = clientapp.NewService(storage)
-			replaceSpecialValuesFromHistory(cmd, opts.service, args)
+			if cmd.Name() != "pick" {
+				replaceSpecialValuesFromHistory(cmd, opts.service, args)
+			}
 			if shouldRecordHistory(cmd) {
 				resourceKey := ""
 				if len(args) > 0 {
@@ -311,7 +372,7 @@ func shouldRecordHistory(cmd *cobra.Command) bool {
 		return false
 	}
 	switch cmd.Name() {
-	case "history", "audit", "export", "server", "sync", "log", "tags":
+	case "history", "audit", "export", "server", "sync", "log", "tags", "pick":
 		return false
 	default:
 		return true

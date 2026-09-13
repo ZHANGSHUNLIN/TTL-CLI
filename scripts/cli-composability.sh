@@ -99,12 +99,36 @@ run_cli dtag note work --json |
 run_cli get --json |
     json_assert "len(data['data']['resources']) == 1 and data['data']['resources'][0]['key'] == 'note'"
 
+pick_stdout="$TEST_DIR/pick.stdout"
+pick_stderr="$TEST_DIR/pick.stderr"
+run_cli pick note >"$pick_stdout" 2>"$pick_stderr"
+[[ "$(cat "$pick_stdout")" == "value" ]]
+[[ ! -s "$pick_stderr" ]]
+if run_cli history 100 | grep -Fq "pick"; then
+    echo "pick 不应写入命令历史" >&2
+    exit 1
+fi
+
+run_cli add note-two second --tag ci --json >/dev/null
+if run_cli pick ci >"$pick_stdout" 2>"$pick_stderr"; then
+    echo "pick 在非 TTY 多匹配场景意外成功" >&2
+    exit 1
+fi
+[[ ! -s "$pick_stdout" ]]
+grep -Fq "interactive terminal" "$pick_stderr"
+
+if run_cli pick one two >"$pick_stdout" 2>"$pick_stderr"; then
+    echo "pick 非法参数意外成功" >&2
+    exit 1
+fi
+[[ ! -s "$pick_stdout" ]]
+grep -Fq "accepts at most 1 arg" "$pick_stderr"
+
 assert_error 3 not_found get missing --json
 assert_error 4 conflict add note duplicate --json
 
-run_cli add note-two second --tag ci --json >/dev/null
-assert_error 4 ambiguous get ci --json
-assert_error 4 text get ci --non-interactive
+assert_error 4 ambiguous get note --json
+assert_error 4 text get note --non-interactive
 assert_error 2 invalid_argument version --json
 assert_error 2 invalid_argument get --unknown-flag --json
 assert_error 2 invalid_argument get --json=maybe

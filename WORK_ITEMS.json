@@ -2,8 +2,8 @@
   "version": 1,
   "items": {
     "W-007": {
-      "status": "Doing",
-      "completed": false
+      "status": "Done",
+      "completed": true
     },
     "W-008": {
       "status": "Done",
@@ -26,8 +26,8 @@
       "completed": true
     },
     "W-013": {
-      "status": "Doing",
-      "completed": false,
+      "status": "Done",
+      "completed": true,
       "reviews": [
         {
           "id": "review-20260912T145343.769813000Z",
@@ -44,10 +44,14 @@
       ]
     },
     "W-014": {
-      "status": "Doing",
-      "completed": false
+      "status": "Done",
+      "completed": true
     },
     "W-015": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-016": {
       "status": "Done",
       "completed": true
     }

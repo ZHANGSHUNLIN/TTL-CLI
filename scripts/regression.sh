@@ -99,6 +99,32 @@ echo "   - add/get"
 run_cli add "test-resource" "https://example.com" > /dev/null
 assert_file_exists "$TEST_DIR/data.bbolt"
 assert_cli_contains "example.com" get test-resource
+run_cli add "deployment-note" "contains-secret" > /dev/null
+if run_cli get secret > /dev/null 2>&1; then
+    echo "ttl get 默认不应按 value 匹配" >&2
+    exit 1
+fi
+assert_cli_contains "contains-secret" get --value secret
+assert_cli_contains "contains-secret" get -v secret
+assert_cli_contains "contains-secret" get -val secret
+
+echo "   - pick output and non-TTY guard"
+pick_stdout="$TEST_DIR/pick.stdout"
+pick_stderr="$TEST_DIR/pick.stderr"
+run_cli pick test-resource >"$pick_stdout" 2>"$pick_stderr"
+[[ "$(cat "$pick_stdout")" == "https://example.com" ]]
+[[ ! -s "$pick_stderr" ]]
+if run_cli history 100 | grep -Fq "pick"; then
+    echo "pick 不应写入命令历史" >&2
+    exit 1
+fi
+run_cli add "test-resource-duplicate" "https://example.com" > /dev/null
+if run_cli pick "example.com" >"$pick_stdout" 2>"$pick_stderr"; then
+    echo "pick 在非 TTY 多匹配场景意外成功" >&2
+    exit 1
+fi
+[[ ! -s "$pick_stdout" ]]
+grep -Fq "交互式终端" "$pick_stderr"
 
 echo "   - tag/export/dtag"
 run_cli tag test-resource ci automated > /dev/null

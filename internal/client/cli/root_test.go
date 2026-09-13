@@ -15,7 +15,7 @@ import (
 
 func TestNewRootCommand_HasClientCommands(t *testing.T) {
 	root := NewRootCommand()
-	for _, name := range []string{"add", "get", "sync", "migrate", "workspace", "ui"} {
+	for _, name := range []string{"add", "get", "pick", "sync", "migrate", "workspace", "ui"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil || cmd == nil || cmd.Name() != name {
 			t.Fatalf("root command does not expose %s: cmd=%v err=%v", name, cmd, err)

@@ -82,8 +82,20 @@ func (s *Service) ListResources() ([]Resource, error) {
 	return result, nil
 }
 
-// FindResources applies the existing key and tag substring matching rules.
+// SearchOptions controls which resource fields participate in substring matching.
+type SearchOptions struct {
+	IncludeValue bool
+	IncludeTags  bool
+}
+
+// FindResources applies the existing key, value, and tag substring matching rules.
 func (s *Service) FindResources(query string) ([]Resource, error) {
+	return s.FindResourcesWithOptions(query, SearchOptions{IncludeValue: true, IncludeTags: true})
+}
+
+// FindResourcesWithOptions searches origin resources by key and optional fields.
+// The key is always searched; callers opt into value and tag matching explicitly.
+func (s *Service) FindResourcesWithOptions(query string, options SearchOptions) ([]Resource, error) {
 	if query == "" {
 		return s.ListResources()
 	}
@@ -98,10 +110,10 @@ func (s *Service) FindResources(query string) ([]Resource, error) {
 			continue
 		}
 		matched := util.ContainsIgnoreCase(key.Key, query)
-		if !matched {
+		if !matched && options.IncludeValue {
 			matched = util.ContainsIgnoreCase(value.Val, query)
 		}
-		if !matched {
+		if !matched && options.IncludeTags {
 			for _, tag := range value.Tag {
 				if util.ContainsIgnoreCase(tag, query) {
 					matched = true

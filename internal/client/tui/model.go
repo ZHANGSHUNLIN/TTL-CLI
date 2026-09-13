@@ -1,10 +1,14 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
+	"runtime"
 	"strings"
 
+	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -14,6 +18,17 @@ import (
 )
 
 const narrowWidth = 72
+
+func uiText(key, fallback string, args ...interface{}) string {
+	value := i18n.T(key)
+	if value == key {
+		value = fallback
+	}
+	if len(args) > 0 {
+		return fmt.Sprintf(value, args...)
+	}
+	return value
+}
 
 type ResourceService interface {
 	ListResources() ([]clientapp.Resource, error)
@@ -57,10 +72,15 @@ type mutationMsg struct {
 	err     error
 }
 
+type openMsg struct {
+	err error
+}
+
 type Model struct {
 	service      ResourceService
 	resources    []clientapp.Resource
 	selected     int
+	listOffset   int
 	query        string
 	screen       screen
 	previous     screen
@@ -77,27 +97,29 @@ type Model struct {
 	tag          textinput.Model
 	dirty        bool
 	detailOffset int
+	openResource func(string) error
 }
 
 func NewModel(service ResourceService, width, height int) Model {
 	search := textinput.New()
 	search.Prompt = "/ "
-	search.Placeholder = "search key, value, or tag"
+	search.Placeholder = uiText("tui.search_placeholder", "search key, value, or tag")
 	key := textinput.New()
-	key.Prompt = "Key: "
+	key.Prompt = uiText("tui.key_prompt", "Key: ")
 	value := textarea.New()
 	value.Prompt = "│ "
-	value.Placeholder = "Resource content"
+	value.Placeholder = uiText("tui.value_placeholder", "Resource content")
 	value.SetWidth(60)
 	value.SetHeight(8)
 	tags := textinput.New()
-	tags.Prompt = "Tags: "
-	tags.Placeholder = "comma,separated"
+	tags.Prompt = uiText("tui.tags_prompt", "Tags: ")
+	tags.Placeholder = uiText("tui.tags_placeholder", "comma,separated")
 	tag := textinput.New()
-	tag.Prompt = "Tags (+name or -name): "
+	tag.Prompt = uiText("tui.tag_prompt", "Tags (+name or -name): ")
 	model := Model{
 		service: service, width: width, height: height, screen: browseScreen, loading: true,
 		search: search, key: key, value: value, tags: tags, tag: tag,
+		openResource: openExternalResource,
 	}
 	model.resizeInputs()
 	return model
@@ -105,11 +127,11 @@ func NewModel(service ResourceService, width, height int) Model {
 
 func Run(service ResourceService, opts RunOptions) (err error) {
 	if service == nil {
-		return fmt.Errorf("TUI service is not initialized")
+		return errors.New(uiText("tui.error_service_uninitialized", "TUI service is not initialized"))
 	}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			err = fmt.Errorf("TUI crashed: %v", recovered)
+			err = fmt.Errorf("%s", uiText("tui.error_crashed", "TUI crashed: %v", recovered))
 		}
 	}()
 	programOptions := []tea.ProgramOption{tea.WithAltScreen()}
@@ -154,7 +176,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		if msg.err != nil {
 			m.err = msg.err
-			m.status = "Unable to read resources; press r to retry"
+			m.status = uiText("tui.status_read_failed", "Unable to read resources; press r to retry")
 			return m, nil
 		}
 		m.err = nil
@@ -164,22 +186,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.selected >= len(m.resources) {
 			m.selected = len(m.resources) - 1
 		}
+		m.ensureSelectedVisible()
 		return m, nil
 	case mutationMsg:
 		m.busy = false
 		if msg.err != nil {
 			m.err = msg.err
-			m.status = "Operation failed; your input was kept"
+			m.status = uiText("tui.status_operation_failed", "Operation failed; your input was kept")
 			return m, nil
 		}
 		m.err = nil
 		m.dirty = false
-		m.status = "Saved"
+		m.status = uiText("tui.status_saved", "Saved")
 		if msg.warning != "" {
-			m.status = "Saved with warning: " + msg.warning
+			m.status = uiText("tui.status_saved_warning", "Saved with warning: %s", msg.warning)
 		}
 		m.screen = browseScreen
 		return m, m.loadResourcesCmd(m.query)
+	case openMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.err = msg.err
+			m.status = uiText("tui.status_open_failed", "Unable to open resource")
+			return m, nil
+		}
+		return m, tea.Quit
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -221,6 +252,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "d":
 			m.screen = deleteScreen
 			return m, nil
+		case "o":
+			if m.busy || len(m.resources) == 0 {
+				return m, nil
+			}
+			m.busy = true
+			value := m.currentValue()
+			return m, func() tea.Msg {
+				if m.openResource == nil {
+					return openMsg{err: errors.New(uiText("tui.error_opener_unconfigured", "TUI resource opener is not configured"))}
+				}
+				return openMsg{err: m.openResource(value)}
+			}
 		}
 	case helpScreen:
 		if key.String() == "esc" || key.String() == "q" || m.screen == helpScreen && key.String() == "?" {
@@ -238,11 +281,39 @@ func (m Model) updateBrowse(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.selected > 0 {
 			m.selected--
+			m.ensureSelectedVisible()
 		}
 	case "down", "j":
 		if m.selected+1 < len(m.resources) {
 			m.selected++
+			m.ensureSelectedVisible()
 		}
+	case "pgup":
+		pageSize := m.listPageSize()
+		page := m.selected / pageSize
+		if page > 0 {
+			m.selected = (page - 1) * pageSize
+		} else {
+			m.selected = 0
+		}
+		m.ensureSelectedVisible()
+	case "pgdown":
+		pageSize := m.listPageSize()
+		nextPageStart := (m.selected/pageSize + 1) * pageSize
+		if nextPageStart >= len(m.resources) {
+			m.selected = len(m.resources) - 1
+		} else {
+			m.selected = nextPageStart
+		}
+		m.ensureSelectedVisible()
+	case "home":
+		m.selected = 0
+		m.ensureSelectedVisible()
+	case "end":
+		if len(m.resources) > 0 {
+			m.selected = len(m.resources) - 1
+		}
+		m.ensureSelectedVisible()
 	case "enter":
 		if len(m.resources) > 0 {
 			m.screen = detailScreen
@@ -322,12 +393,12 @@ func (m *Model) startEdit() {
 }
 
 func (m Model) updateEditor(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if key.String() == "ctrl+s" {
+	if key.String() == "ctrl+s" || key.String() == "cmd+s" {
 		if m.busy {
 			return m, nil
 		}
 		if m.screen == createScreen && strings.TrimSpace(m.key.Value()) == "" {
-			m.status = "Key is required"
+			m.status = uiText("tui.status_key_required", "Key is required")
 			return m, nil
 		}
 		m.busy = true
@@ -391,7 +462,7 @@ func (m Model) updateDiscard(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		m.dirty = false
 		m.screen = browseScreen
-		m.status = "Discarded unsaved changes"
+		m.status = uiText("tui.status_discarded", "Discarded unsaved changes")
 	case "n", "esc":
 		m.screen = m.previous
 	}
@@ -473,6 +544,55 @@ func (m *Model) resizeInputs() {
 	m.value.SetHeight(height)
 }
 
+func (m Model) listPageSize() int {
+	return maxInt(1, m.height-8)
+}
+
+func (m *Model) ensureSelectedVisible() {
+	pageSize := m.listPageSize()
+	if m.selected < m.listOffset {
+		m.listOffset = m.selected
+	}
+	if m.selected >= m.listOffset+pageSize {
+		m.listOffset = m.selected - pageSize + 1
+	}
+	if m.listOffset < 0 {
+		m.listOffset = 0
+	}
+	maxOffset := len(m.resources) - pageSize
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.listOffset > maxOffset {
+		m.listOffset = maxOffset
+	}
+}
+
+func (m Model) listPageBounds() (int, int) {
+	pageSize := m.listPageSize()
+	start := m.listOffset
+	if start < 0 {
+		start = 0
+	}
+	if start > len(m.resources) {
+		start = len(m.resources)
+	}
+	end := start + pageSize
+	if end > len(m.resources) {
+		end = len(m.resources)
+	}
+	return start, end
+}
+
+func (m Model) listPageLabel() string {
+	if len(m.resources) == 0 {
+		return ""
+	}
+	pageSize := m.listPageSize()
+	total := (len(m.resources) + pageSize - 1) / pageSize
+	return uiText("tui.page", "Page %d/%d", m.selected/pageSize+1, total)
+}
+
 func splitTags(value string) []string {
 	seen := map[string]bool{}
 	result := []string{}
@@ -488,43 +608,43 @@ func splitTags(value string) []string {
 
 func (m Model) View() string {
 	if m.width > 0 && (m.width < 30 || m.height < 8) {
-		return "Terminal too small; resize or press q.\n"
+		return uiText("tui.terminal_too_small", "Terminal too small; resize or press q.") + "\n"
 	}
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("63")).Render("TTL Resources")
-	header := fmt.Sprintf("%s  local  query=%q  results=%d", title, m.query, len(m.resources))
+	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("63")).Render(uiText("tui.title", "TTL Resources"))
+	header := uiText("tui.header", "%s  local  query=%q  results=%d", title, m.query, len(m.resources))
 	if m.loading {
-		return header + "\n\nLoading resources…\n"
+		return header + "\n\n" + uiText("tui.loading", "Loading resources...") + "\n"
 	}
 	if m.err != nil && len(m.resources) == 0 {
-		return header + "\n\nError: " + m.err.Error() + "\n" + m.status + "\n"
+		return header + "\n\n" + uiText("tui.error_label", "Error: %s", m.err.Error()) + "\n" + m.status + "\n"
 	}
 	var body string
 	switch m.screen {
 	case searchScreen:
-		body = m.search.View() + "\n\nEnter keep filter • Esc clear"
+		body = m.search.View() + "\n\n" + uiText("tui.search_help", "Enter keep filter • Esc clear")
 	case createScreen:
-		body = "Create resource\n\n" + m.key.View() + "\nValue:\n" + m.value.View() + "\n" + m.tags.View() + "\n\nCtrl+S save • Tab next • Esc cancel"
+		body = uiText("tui.create_title", "Create resource") + "\n\n" + m.key.View() + "\n" + uiText("tui.value_label", "Value:") + "\n" + m.value.View() + "\n" + m.tags.View() + "\n\n" + uiText("tui.editor_create_help", "%s save • Tab next • Esc cancel", saveShortcutLabel())
 	case editScreen:
-		body = "Edit " + m.currentKey() + "\n\n" + m.value.View() + "\n\nCtrl+S save • Esc cancel"
+		body = uiText("tui.edit_title", "Edit %s", m.currentKey()) + "\n\n" + m.value.View() + "\n\n" + uiText("tui.editor_edit_help", "%s save • Esc cancel", saveShortcutLabel())
 	case tagScreen:
-		body = "Manage tags for " + m.currentKey() + "\nCurrent: " + strings.Join(m.currentTags(), ", ") + "\n\n" + m.tag.View() + "\nUse name to add or -name to remove • Enter apply • Esc cancel"
+		body = uiText("tui.tags_title", "Manage tags for %s", m.currentKey()) + "\n" + uiText("tui.current_tags", "Current: %s", strings.Join(m.currentTags(), ", ")) + "\n\n" + m.tag.View() + "\n" + uiText("tui.tags_help", "Use name to add or -name to remove • Enter apply • Esc cancel")
 	case deleteScreen:
-		body = "Delete " + m.currentKey() + "?\n" + truncate(m.currentValue(), 120) + "\n\ny confirm • n/Esc cancel"
+		body = uiText("tui.delete_title", "Delete %s?", m.currentKey()) + "\n" + truncate(m.currentValue(), 120) + "\n\n" + uiText("tui.delete_help", "y confirm • n/Esc cancel")
 	case discardScreen:
-		body = "Discard unsaved changes? They cannot be recovered.\n\ny discard • n/Esc continue editing"
+		body = uiText("tui.discard_title", "Discard unsaved changes? They cannot be recovered.") + "\n\n" + uiText("tui.discard_help", "y discard • n/Esc continue editing")
 	case helpScreen:
-		body = "Keys\n  ↑/k ↓/j select   Enter details   / search   n new\n  e edit   t tags   d delete   r retry   q quit"
+		body = uiText("tui.help", "Keys\n  ↑/k ↓/j select   Enter details   / search   n new\n  e edit   t tags   d delete   o open   r retry   q quit")
 	case detailScreen:
-		body = m.scrollableDetailView() + "\n\n↑/↓ scroll • Esc/q back • e edit • t tags • d delete"
+		body = m.scrollableDetailView() + "\n\n" + uiText("tui.detail_help", "↑/↓ scroll • Esc/q back • e edit • t tags • d delete • o open")
 	default:
 		body = m.browserView()
 	}
 	footer := m.status
 	if m.err != nil {
-		footer = "Error: " + m.err.Error() + " • " + footer
+		footer = uiText("tui.error_footer", "Error: %s • %s", m.err.Error(), footer)
 	}
 	if m.busy {
-		footer = "Working…"
+		footer = uiText("tui.working", "Working...")
 	}
 	if footer != "" {
 		return clipView(header+"\n\n"+body+"\n\n"+footer+"\n", m.width, m.height)
@@ -532,30 +652,56 @@ func (m Model) View() string {
 	return clipView(header+"\n\n"+body+"\n", m.width, m.height)
 }
 
+func openExternalResource(value string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", value).Run()
+	case "windows":
+		return exec.Command("explorer", value).Run()
+	case "linux":
+		return errors.New(uiText("tui.error_open_linux", "opening resources is not supported on Linux"))
+	default:
+		return fmt.Errorf("%s", uiText("tui.error_open_os", "opening resources is not supported on %s", runtime.GOOS))
+	}
+}
+
 func (m Model) browserView() string {
 	if len(m.resources) == 0 {
 		if m.query != "" {
-			return fmt.Sprintf("No results for %q. Press / to change or Esc to clear.", m.query)
+			return uiText("tui.no_results", "No results for %q. Press / to change or Esc to clear.", m.query)
 		}
-		return "No resources yet. Press n to add the first one."
+		return uiText("tui.no_resources", "No resources yet. Press n to add the first one.")
 	}
-	lines := make([]string, 0, len(m.resources))
-	for i, resource := range m.resources {
+	start, end := m.listPageBounds()
+	lines := make([]string, 0, end-start)
+	for i, resource := range m.resources[start:end] {
 		prefix := "  "
-		if i == m.selected {
+		if start+i == m.selected {
 			prefix = "› "
 		}
 		lines = append(lines, prefix+resource.Key.Key+tagSuffix(resource.Value.Tag))
 	}
 	list := strings.Join(lines, "\n")
+	controls := uiText("tui.controls", "%s  ↑/↓ select • PgUp/PgDn page • Enter details • / search • n new • e edit • t tags • d delete • ? help • q quit", m.listPageLabel())
 	if m.width > 0 && m.width < narrowWidth {
-		return list + "\n\nEnter details • / search • n new • ? help • q quit"
+		controls = uiText("tui.controls_narrow", "%s • ↑/↓ • PgUp/PgDn • Enter details • / search • n new • ? help • q quit", m.listPageLabel())
+		return list + "\n\n" + controls
 	}
 	detailWidth := m.width - 38
 	if detailWidth < 20 {
 		detailWidth = 20
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Width(32).Render(list), "  ", lipgloss.NewStyle().Width(detailWidth).Render(m.detailView())) + "\n\n/ search • n new • e edit • t tags • d delete • ? help • q quit"
+	pageHeight := m.listPageSize()
+	listView := lipgloss.NewStyle().Width(32).Height(pageHeight).Render(list)
+	detailView := lipgloss.NewStyle().Width(detailWidth).Height(pageHeight).Render(clipView(m.detailView(), detailWidth, pageHeight))
+	return lipgloss.JoinHorizontal(lipgloss.Top, listView, "  ", detailView) + "\n\n" + controls
+}
+
+func saveShortcutLabel() string {
+	if runtime.GOOS == "darwin" {
+		return "Command+S"
+	}
+	return "Ctrl+S"
 }
 
 func (m Model) detailView() string {
@@ -563,7 +709,7 @@ func (m Model) detailView() string {
 		return ""
 	}
 	resource := m.resources[m.selected]
-	return fmt.Sprintf("%s\n\n%s\n\nTags: %s\nCreated: %d  Updated: %d", resource.Key.Key, resource.Value.Val, strings.Join(resource.Value.Tag, ", "), resource.Value.CreatedAt, resource.Value.UpdatedAt)
+	return uiText("tui.detail", "%s\n\n%s\n\nTags: %s\nCreated: %d  Updated: %d", resource.Key.Key, resource.Value.Val, strings.Join(resource.Value.Tag, ", "), resource.Value.CreatedAt, resource.Value.UpdatedAt)
 }
 
 func (m Model) scrollableDetailView() string {

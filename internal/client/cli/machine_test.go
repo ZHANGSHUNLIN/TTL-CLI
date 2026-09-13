@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"ttl-cli/i18n"
@@ -90,6 +91,27 @@ func TestBoolFlagEnabledHandlesExplicitValues(t *testing.T) {
 		if got := boolFlagEnabled(test.args, "--json"); got != test.want {
 			t.Errorf("boolFlagEnabled(%v) = %v, want %v", test.args, got, test.want)
 		}
+	}
+}
+
+func TestCommandFromArgsSkipsPersistentFlags(t *testing.T) {
+	if got := commandFromArgs([]string{"--conf", "/tmp/ttl.conf", "pick", "query"}); got != "pick" {
+		t.Fatalf("commandFromArgs() = %q, want pick", got)
+	}
+	if got := commandFromArgs([]string{"--conf=/tmp/ttl.conf", "get", "pick"}); got != "get" {
+		t.Fatalf("commandFromArgs() = %q, want get", got)
+	}
+}
+
+func TestNormalizeGetValueAliasOnlyChangesGetArguments(t *testing.T) {
+	if got := normalizeGetValueAlias([]string{"get", "-val", "secret"}); strings.Join(got, " ") != "get --value secret" {
+		t.Fatalf("normalized get args = %v", got)
+	}
+	if got := normalizeGetValueAlias([]string{"add", "-val", "value"}); strings.Join(got, " ") != "add -val value" {
+		t.Fatalf("normalized non-get args = %v", got)
+	}
+	if got := normalizeGetValueAlias([]string{"get", "--", "-val"}); strings.Join(got, " ") != "get -- -val" {
+		t.Fatalf("normalized escaped args = %v", got)
 	}
 }
 

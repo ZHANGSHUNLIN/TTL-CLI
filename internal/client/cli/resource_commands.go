@@ -1,9 +1,15 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/signal"
 	"sort"
+	"strconv"
+	"strings"
 
 	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
@@ -49,7 +55,8 @@ func newAddCommand(_ *options) *cobra.Command {
 }
 
 func newGetCommand(_ *options) *cobra.Command {
-	return &cobra.Command{
+	var includeValue bool
+	cmd := &cobra.Command{
 		Use:   "get [key]",
 		Short: i18n.T("command.get.short"),
 		Long:  i18n.T("command.get.long"),
@@ -78,7 +85,7 @@ func newGetCommand(_ *options) *cobra.Command {
 				return nil
 			}
 
-			matches, err := service.FindResources(args[0])
+			matches, err := service.FindResourcesWithOptions(args[0], clientapp.SearchOptions{IncludeValue: includeValue, IncludeTags: true})
 			if err != nil {
 				return textCommandError(cmd, "get", args[0], err)
 			}
@@ -106,6 +113,131 @@ func newGetCommand(_ *options) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&includeValue, "value", "v", false, i18n.T("command.get.flag_value"))
+	// Keep the requested multi-character spelling as a hidden compatibility alias;
+	// -v is the discoverable conventional shorthand.
+	cmd.Flags().BoolVar(&includeValue, "val", false, i18n.T("command.get.flag_value"))
+	_ = cmd.Flags().MarkHidden("val")
+	return cmd
+}
+
+func newPickCommand(opts *options) *cobra.Command {
+	return &cobra.Command{
+		Use:   "pick [query]",
+		Short: i18n.T("command.pick.short"),
+		Long:  i18n.T("command.pick.long"),
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			service := serviceFromCommand(cmd)
+			var (
+				matches []clientapp.Resource
+				err     error
+			)
+			if len(args) == 0 {
+				matches, err = service.ListResources()
+			} else {
+				matches, err = service.FindResources(args[0])
+			}
+			if err != nil {
+				return err
+			}
+			if len(matches) == 0 {
+				query := ""
+				if len(args) == 1 {
+					query = args[0]
+				}
+				return pickNotFoundError(query)
+			}
+
+			selected := matches[0]
+			if len(matches) > 1 {
+				detector := opts.isTerminal
+				if detector == nil {
+					detector = defaultTerminalDetector
+				}
+				if !detector(cmd.InOrStdin(), cmd.ErrOrStderr()) {
+					return interactionRequired(i18n.T("command.pick.requires_terminal"))
+				}
+				var selectErr error
+				selected, selectErr = selectPickResource(cmd, matches)
+				if selectErr != nil {
+					return selectErr
+				}
+			}
+			writePickValue(cmd.OutOrStdout(), selected.Value.Val)
+			return nil
+		},
+	}
+}
+
+func selectPickResource(cmd *cobra.Command, matches []clientapp.Resource) (clientapp.Resource, error) {
+	fmt.Fprintln(cmd.ErrOrStderr(), i18n.T("command.pick.multiple_matches"))
+	for index, match := range matches {
+		fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s\n", index+1, resourceKey(match.Key))
+	}
+	fmt.Fprintln(cmd.ErrOrStderr(), i18n.T("command.pick.prompt"))
+
+	type readResult struct {
+		input string
+		err   error
+	}
+	readCh := make(chan readResult, 1)
+	go func() {
+		input, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+		readCh <- readResult{input: input, err: err}
+	}()
+	interruptCh := make(chan os.Signal, 1)
+	signal.Notify(interruptCh, os.Interrupt)
+	defer signal.Stop(interruptCh)
+	var input string
+	var err error
+	select {
+	case result := <-readCh:
+		input, err = result.input, result.err
+	case <-interruptCh:
+		return clientapp.Resource{}, pickCancelledError()
+	}
+	if len(input) > 0 {
+		switch input[0] {
+		case '\x03', '\x1b':
+			return clientapp.Resource{}, pickCancelledError()
+		}
+	}
+	if err != nil && !errors.Is(err, io.EOF) {
+		return clientapp.Resource{}, &cliError{code: "system_error", message: err.Error(), details: map[string]any{}, exitCode: exitSystemError, cause: err}
+	}
+	if errors.Is(err, io.EOF) && input == "" {
+		return clientapp.Resource{}, pickCancelledError()
+	}
+	choice := strings.TrimSpace(input)
+	if strings.EqualFold(choice, "q") {
+		return clientapp.Resource{}, pickCancelledError()
+	}
+	if choice == "" {
+		return clientapp.Resource{}, pickInvalidChoiceError(len(matches))
+	}
+	selected, convErr := strconv.Atoi(choice)
+	if convErr != nil || selected < 1 || selected > len(matches) {
+		return clientapp.Resource{}, pickInvalidChoiceError(len(matches))
+	}
+	return matches[selected-1], nil
+}
+
+func writePickValue(w io.Writer, value string) {
+	value = strings.TrimRight(value, "\r\n")
+	fmt.Fprintln(w, value)
+}
+
+func pickNotFoundError(query string) error {
+	return &cliError{code: "not_found", message: i18n.T("command.pick.not_found", query), details: map[string]any{}, exitCode: exitNotFound}
+}
+
+func pickInvalidChoiceError(count int) error {
+	return &cliError{code: "invalid_choice", message: i18n.T("command.pick.invalid_choice", count), details: map[string]any{"count": count}, exitCode: exitConflict}
+}
+
+func pickCancelledError() error {
+	return &cliError{code: "cancelled", message: i18n.T("command.pick.cancelled"), details: map[string]any{}, exitCode: exitConflict}
 }
 
 func newUpdateCommand(_ *options) *cobra.Command {

@@ -2,9 +2,12 @@ package tui
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 
+	"ttl-cli/i18n"
 	clientapp "ttl-cli/internal/client/app"
 	"ttl-cli/models"
 
@@ -93,6 +96,21 @@ func TestModel_EmptyAndSearchNoResultsAreObservable(t *testing.T) {
 	}
 }
 
+func TestModel_UsesLocalizedStableCopy(t *testing.T) {
+	i18n.Reset()
+	if err := i18n.InitWithLanguage("zh-CN"); err != nil {
+		t.Fatalf("i18n.InitWithLanguage() error = %v", err)
+	}
+	t.Cleanup(i18n.Reset)
+
+	model := NewModel(&fakeService{}, 80, 24)
+	model = updateModel(t, model, model.Init()())
+	view := model.View()
+	if !strings.Contains(view, "TTL 资源") || !strings.Contains(view, "暂无资源") {
+		t.Fatalf("localized view = %q", view)
+	}
+}
+
 func TestModel_SaveFailureKeepsEditorAndDraft(t *testing.T) {
 	writeErr := errors.New("disk full")
 	service := &fakeService{resources: testResources(), writeErr: writeErr}
@@ -128,6 +146,7 @@ func TestModel_DeleteRequiresConfirmationAndFailureKeepsResource(t *testing.T) {
 func TestModel_DirtyEditorRequiresDiscardConfirmation(t *testing.T) {
 	model := NewModel(&fakeService{resources: testResources()}, 80, 24)
 	model.resources = testResources()
+	model.loading = false
 	model.startEdit()
 	model.dirty = true
 	updated, _ := model.updateEditor(tea.KeyMsg{Type: tea.KeyEsc})
@@ -154,6 +173,120 @@ func TestModel_NarrowAndLongDetailDoNotPanic(t *testing.T) {
 	model.detailOffset = 10
 	if view := model.View(); !strings.Contains(view, "scroll") {
 		t.Fatalf("detail view = %q", view)
+	}
+}
+
+func TestModel_OpenFromDetailQuitsAfterSuccessfulOpen(t *testing.T) {
+	service := &fakeService{resources: testResources()}
+	model := NewModel(service, 80, 24)
+	model.resources = service.resources
+	model.loading = false
+	model.screen = detailScreen
+	opened := ""
+	model.openResource = func(value string) error {
+		opened = value
+		return nil
+	}
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	model = updated.(Model)
+	if !model.busy || cmd == nil {
+		t.Fatalf("open state = busy:%v cmd:%v, want async open", model.busy, cmd != nil)
+	}
+	updated, quitCmd := model.Update(cmd())
+	model = updated.(Model)
+	if opened != "value" {
+		t.Fatalf("opened value = %q, want %q", opened, "value")
+	}
+	if quitCmd == nil {
+		t.Fatal("successful open did not request TUI exit")
+	}
+	if _, ok := quitCmd().(tea.QuitMsg); !ok {
+		t.Fatalf("successful open command returned %T, want tea.QuitMsg", quitCmd())
+	}
+}
+
+func TestModel_OpenFailureKeepsDetailScreen(t *testing.T) {
+	service := &fakeService{resources: testResources()}
+	model := NewModel(service, 80, 24)
+	model.resources = service.resources
+	model.loading = false
+	model.screen = detailScreen
+	openErr := errors.New("open failed")
+	model.openResource = func(string) error { return openErr }
+
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	model = updated.(Model)
+	updated, quitCmd := model.Update(cmd())
+	model = updated.(Model)
+	if model.screen != detailScreen || model.busy || !errors.Is(model.err, openErr) || quitCmd != nil {
+		t.Fatalf("open failure state = screen:%v busy:%v err:%v quit:%v", model.screen, model.busy, model.err, quitCmd != nil)
+	}
+}
+
+func TestModel_BrowseListPagesAndKeepsControlsVisible(t *testing.T) {
+	resources := make([]clientapp.Resource, 0, 30)
+	for index := 0; index < 30; index++ {
+		resources = append(resources, clientapp.Resource{
+			Key:   models.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: models.ORIGIN},
+			Value: models.ValJson{Val: "value"},
+		})
+	}
+	model := NewModel(&fakeService{resources: resources}, 100, 14)
+	model = updateModel(t, model, loadMsg{resources: resources})
+	view := model.View()
+	if !strings.Contains(view, "resource-00") || strings.Contains(view, "resource-29") {
+		t.Fatalf("first page view = %q", view)
+	}
+	if !strings.Contains(view, "PgUp/PgDn page") || !strings.Contains(view, "Page 1/") {
+		t.Fatalf("pagination controls missing: %q", view)
+	}
+
+	updated, _ := model.updateBrowse(tea.KeyMsg{Type: tea.KeyPgDown})
+	model = updated.(Model)
+	view = model.View()
+	if !strings.Contains(view, "resource-06") || !strings.Contains(view, "Page 2/") {
+		t.Fatalf("second page view = %q", view)
+	}
+	if strings.Contains(view, "resource-00") {
+		t.Fatalf("second page still shows first item: %q", view)
+	}
+}
+
+func TestModel_LastListPageReportsLastPage(t *testing.T) {
+	resources := make([]clientapp.Resource, 0, 52)
+	for index := 0; index < 52; index++ {
+		resources = append(resources, clientapp.Resource{
+			Key:   models.ValJsonKey{Key: fmt.Sprintf("resource-%02d", index), Type: models.ORIGIN},
+			Value: models.ValJson{Val: "value"},
+		})
+	}
+	model := NewModel(&fakeService{resources: resources}, 180, 40)
+	model = updateModel(t, model, loadMsg{resources: resources})
+	updated, _ := model.updateBrowse(tea.KeyMsg{Type: tea.KeyPgDown})
+	model = updated.(Model)
+	if !strings.Contains(model.View(), "Page 2/2") || model.selected != 32 {
+		t.Fatalf("last page state: selected=%d offset=%d view=%q", model.selected, model.listOffset, model.View())
+	}
+	updated, _ = model.updateBrowse(tea.KeyMsg{Type: tea.KeyEnd})
+	model = updated.(Model)
+	if !strings.Contains(model.View(), "Page 2/2") || model.selected != len(resources)-1 {
+		t.Fatalf("end page state: selected=%d offset=%d view=%q", model.selected, model.listOffset, model.View())
+	}
+}
+
+func TestModel_SaveShortcutMatchesOperatingSystem(t *testing.T) {
+	model := NewModel(&fakeService{resources: testResources()}, 80, 24)
+	model.resources = testResources()
+	model.loading = false
+	model.startEdit()
+	view := model.View()
+	want := "Ctrl+S save"
+	if runtime.GOOS == "darwin" {
+		want = "Command+S save"
+	}
+	if !strings.Contains(view, want) {
+		t.Fatalf("editor shortcut = %q, want %q", view, want)
 	}
 }
 

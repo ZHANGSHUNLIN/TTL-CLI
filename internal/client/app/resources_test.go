@@ -81,6 +81,33 @@ func TestService_FindResourcesUsesKeyAndTagMatching(t *testing.T) {
 	}
 }
 
+func TestService_FindResourcesWithOptionsDefaultsToKeyAndCanIncludeValue(t *testing.T) {
+	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
+		{Key: "alpha-key", Type: models.ORIGIN}: {Val: "first value"},
+		{Key: "beta-key", Type: models.ORIGIN}:  {Val: "alpha in value"},
+	}})
+
+	keyMatches, err := service.FindResourcesWithOptions("alpha", SearchOptions{})
+	if err != nil || len(keyMatches) != 1 || keyMatches[0].Key.Key != "alpha-key" {
+		t.Fatalf("key-only matches = %+v, err = %v", keyMatches, err)
+	}
+	valueMatches, err := service.FindResourcesWithOptions("alpha", SearchOptions{IncludeValue: true})
+	if err != nil || len(valueMatches) != 2 {
+		t.Fatalf("key/value matches = %+v, err = %v", valueMatches, err)
+	}
+}
+
+func TestService_FindResourcesWithOptionsCanIncludeTagsWithoutValue(t *testing.T) {
+	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
+		{Key: "deployment-note", Type: models.ORIGIN}: {Val: "secret", Tag: []string{"production"}},
+	}})
+
+	matches, err := service.FindResourcesWithOptions("production", SearchOptions{IncludeTags: true})
+	if err != nil || len(matches) != 1 || matches[0].Key.Key != "deployment-note" {
+		t.Fatalf("tag matches = %+v, err = %v", matches, err)
+	}
+}
+
 func TestService_FindResourcesEmptyQueryListsOriginResources(t *testing.T) {
 	service := NewService(&resourceStorage{resources: map[models.ValJsonKey]models.ValJson{
 		{Key: "note", Type: models.ORIGIN}:                {Val: "value"},
