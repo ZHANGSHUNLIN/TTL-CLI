@@ -201,6 +201,8 @@
     "server": {
       "short": "启动 HTTP 后端服务或管理用户",
       "long": "启动多租户 HTTP 服务（REST API），或通过 user 子命令管理用户。",
+      "flag_listen": "HTTP 监听地址（默认仅本机回环）",
+      "flag_shutdown_timeout": "优雅关闭超时时间",
       "user": {
         "short": "用户管理",
         "long": "管理多租户用户，包括创建、列出、禁用、启用、重置 Key、删除等操作。"

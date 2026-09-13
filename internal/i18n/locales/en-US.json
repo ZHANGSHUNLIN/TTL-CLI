@@ -201,6 +201,8 @@
     "server": {
       "short": "Start HTTP backend or manage users",
       "long": "Start multi-tenant HTTP service (REST API), or manage users via user subcommands.",
+      "flag_listen": "HTTP listen address (loopback by default)",
+      "flag_shutdown_timeout": "Graceful shutdown timeout",
       "user": {
         "short": "User management",
         "long": "Manage multi-tenant users, including create, list, disable, enable, reset Key, delete, etc."

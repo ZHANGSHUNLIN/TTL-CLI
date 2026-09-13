@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.25'
 
 jobs:
   lint:
@@ -16,32 +16,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
       - name: Run go vet
         run: go vet ./...
-
       - name: Run gofmt check
         run: |
           if [ "$(gofmt -s -l .)" ]; then
             echo "Go code is not formatted. Run 'gofmt -s -w .'"
             exit 1
           fi
-
       - name: Run go mod tidy check
         run: |
           cp go.mod go.mod.backup
           go mod tidy
-          diff go.mod go.mod.backup
-          if [ $? -ne 0 ]; then
-            echo "go.mod needs to be tidied. Run 'go mod tidy'"
-            exit 1
-          fi
+          diff -u go.mod.backup go.mod
+          rm -f go.mod.backup
 
   test:
     name: Test
@@ -49,19 +42,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -74,21 +63,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
       - name: Run integration tests
         run: go test -v ./integration_test/...
 
-  build:
-    name: Build
+  client-build:
+    name: Build client (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -100,31 +86,52 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
-      - name: Build
+      - name: Build client entry point
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          OUTPUT_NAME="ttl-cli"
-          if [ "$GOOS" = "windows" ]; then
-            OUTPUT_NAME="${OUTPUT_NAME}.exe"
-          fi
-          go build -ldflags="-s -w" -o "$OUTPUT_NAME" .
-          echo "Build successful for $GOOS/$GOARCH"
-
-      - name: Upload artifact
+          output="ttl"
+          if [ "$GOOS" = "windows" ]; then output="ttl.exe"; fi
+          go build -ldflags="-s -w" -o "$output" ./cmd/ttl
+      - name: Upload client artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ttl-cli-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ttl-cli*
+          name: ttl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ttl*
+
+  server-build:
+    name: Build server (${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Download dependencies
+        run: go mod download
+      - name: Build server entry point
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: go build -ldflags="-s -w" -o ttl-server ./cmd/ttl-server
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttl-server-linux-${{ matrix.goarch }}
+          path: ttl-server

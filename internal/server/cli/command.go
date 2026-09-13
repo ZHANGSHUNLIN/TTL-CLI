@@ -8,15 +8,17 @@ import (
 	"time"
 
 	"ttl-cli/internal/i18n"
-	api "ttl-cli/internal/server/api"
+	serverapp "ttl-cli/internal/server/app"
 	"ttl-cli/internal/server/tenant"
 
 	"github.com/spf13/cobra"
 )
 
 type commandConfig struct {
-	port    int
-	dataDir string
+	listenAddress   string
+	port            int
+	dataDir         string
+	shutdownTimeout time.Duration
 }
 
 // NewCompatibilityCommand returns the legacy server command tree for callers
@@ -41,6 +43,8 @@ func NewRootCommand() *cobra.Command {
 	}
 	root.PersistentFlags().IntVar(&cfg.port, "port", 8080, i18n.T("command.server.flag_port"))
 	root.PersistentFlags().StringVar(&cfg.dataDir, "data-dir", cfg.dataDir, i18n.T("command.server.flag_data_dir"))
+	root.PersistentFlags().StringVar(&cfg.listenAddress, "listen", cfg.listenAddress, i18n.T("command.server.flag_listen"))
+	root.PersistentFlags().DurationVar(&cfg.shutdownTimeout, "shutdown-timeout", cfg.shutdownTimeout, i18n.T("command.server.flag_shutdown_timeout"))
 
 	root.AddCommand(newServeCommand("serve", &cfg))
 	root.AddCommand(newUserCommand(&cfg))
@@ -65,8 +69,10 @@ func Run() int {
 func defaultConfig() commandConfig {
 	home, _ := os.UserHomeDir()
 	return commandConfig{
-		port:    8080,
-		dataDir: filepath.Join(home, ".ttl"),
+		listenAddress:   "127.0.0.1",
+		port:            8080,
+		dataDir:         filepath.Join(home, ".ttl"),
+		shutdownTimeout: 10 * time.Second,
 	}
 }
 
@@ -77,12 +83,19 @@ func newServeCommand(use string, cfg *commandConfig) *cobra.Command {
 		Long:  i18n.T("command.server.long"),
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return api.StartServer(cfg.port, cfg.dataDir)
+			return serverapp.RunWithSignals(serverapp.Config{
+				ListenAddress:   cfg.listenAddress,
+				Port:            cfg.port,
+				DataDir:         cfg.dataDir,
+				ShutdownTimeout: cfg.shutdownTimeout,
+			})
 		},
 	}
 	if use == "server" {
 		cmd.Flags().IntVar(&cfg.port, "port", 8080, i18n.T("command.server.flag_port"))
 		cmd.Flags().StringVar(&cfg.dataDir, "data-dir", cfg.dataDir, i18n.T("command.server.flag_data_dir"))
+		cmd.Flags().StringVar(&cfg.listenAddress, "listen", cfg.listenAddress, i18n.T("command.server.flag_listen"))
+		cmd.Flags().DurationVar(&cfg.shutdownTimeout, "shutdown-timeout", cfg.shutdownTimeout, i18n.T("command.server.flag_shutdown_timeout"))
 	}
 	return cmd
 }

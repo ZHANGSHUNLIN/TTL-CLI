@@ -6,14 +6,14 @@ on:
       - 'v*'
 
 env:
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.25'
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Release
+  build-client:
+    name: Package client (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,78 +25,98 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
       - name: Download dependencies
         run: go mod download
-
-      - name: Get version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Build
+      - name: Build and package client
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          OUTPUT_NAME="ttl-cli"
-          if [ "$GOOS" = "windows" ]; then
-            OUTPUT_NAME="${OUTPUT_NAME}.exe"
-          fi
-          go build -ldflags="-s -w -X main.version=${VERSION}" -o "$OUTPUT_NAME" .
-
-          # Create archive
-          ARCHIVE_NAME="ttl-cli-${VERSION}-${GOOS}-${GOARCH}"
-          if [ "$GOOS" = "linux" ]; then
-            tar czf "${ARCHIVE_NAME}.tar.gz" "$OUTPUT_NAME"
-            echo "ARCHIVE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
-          elif [ "$GOOS" = "darwin" ]; then
-            tar czf "${ARCHIVE_NAME}.tar.gz" "$OUTPUT_NAME"
-            echo "ARCHIVE=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
-          else
-            zip "${ARCHIVE_NAME}.zip" "$OUTPUT_NAME"
-            echo "ARCHIVE=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
-          fi
-
-          # Create checksums
-          if [ "$GOOS" = "windows" ]; then
-            sha256sum "${ARCHIVE_NAME}.zip" > "${ARCHIVE_NAME}.sha256"
-          else
-            sha256sum "${ARCHIVE_NAME}.tar.gz" > "${ARCHIVE_NAME}.sha256"
-          fi
-
-      - name: Generate Release Notes
-        id: release_notes
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            echo "## What's Changed" > release_notes.md
-            echo "" >> release_notes.md
-            git log ${PREV_TAG}..HEAD --pretty=format:"- %s" >> release_notes.md
-          else
-            echo "## Initial Release" > release_notes.md
-            echo "" >> release_notes.md
-            echo "First release of ttl-cli - personal data management system." >> release_notes.md
-          fi
-          echo "EOF_RELEASE_NOTS<<EOF" >> $GITHUB_OUTPUT
-          cat release_notes.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+          version="${GITHUB_REF#refs/tags/}"
+          output="ttl"
+          extension="tar.gz"
+          if [ "$GOOS" = "windows" ]; then output="ttl.exe"; extension="zip"; fi
+          archive="ttl-${version}-${GOOS}-${GOARCH}.${extension}"
+          go build -ldflags="-s -w" -o "$output" ./cmd/ttl
+          if [ "$extension" = "zip" ]; then zip "$archive" "$output"; else tar czf "$archive" "$output"; fi
+          sha256sum "$archive" > "$archive.sha256"
+      - name: Upload client package
+        uses: actions/upload-artifact@v4
         with:
-          body: ${{ steps.release_notes.outputs.EOF_RELEASE_NOTS }}
-          files: |
-            ${{ env.ARCHIVE }}
-            ${{ env.ARCHIVE }}.sha256
+          name: client-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ttl-*
+
+  build-server:
+    name: Package server (linux/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Download dependencies
+        run: go mod download
+      - name: Build and package server
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          version="${GITHUB_REF#refs/tags/}"
+          output="ttl-server"
+          archive="ttl-server-${version}-linux-${GOARCH}.tar.gz"
+          staging="staging"
+          mkdir -p "$staging"
+          go build -ldflags="-s -w" -o "$staging/$output" ./cmd/ttl-server
+          tar czf "$archive" -C "$staging" "$output"
+          sha256sum "$archive" > "$archive.sha256"
+          tar tzf "$archive" | grep -Fx "$output"
+          if tar tzf "$archive" | grep -Ev '^ttl-server$'; then
+            echo "server archive contains an unexpected file"
+            exit 1
+          fi
+      - name: Upload server package
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-linux-${{ matrix.goarch }}
+          path: ttl-server-*
+
+  publish:
+    name: Publish release
+    needs: [build-client, build-server]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          version="${GITHUB_REF#refs/tags/}"
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "## ${version}" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "客户端和服务端制品已分别构建并附带 SHA-256 校验文件。" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.release-notes.outputs.body }}
+          files: dist/*
           draft: false
           prerelease: false
           generate_release_notes: false

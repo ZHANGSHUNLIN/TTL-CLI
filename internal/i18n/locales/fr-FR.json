@@ -201,6 +201,8 @@
     "server": {
       "short": "Démarrer le backend HTTP ou gérer les utilisateurs",
       "long": "Démarrer le service HTTP multi-locataire (API REST), ou gérer les utilisateurs via les sous-commandes utilisateur.",
+      "flag_listen": "Adresse d'écoute HTTP (boucle locale par défaut)",
+      "flag_shutdown_timeout": "Délai d'arrêt gracieux",
       "user": {
         "short": "Gestion des utilisateurs",
         "long": "Gérer les utilisateurs multi-locataires, y compris créer, lister, désactiver, activer, réinitialiser la clé, supprimer, etc."

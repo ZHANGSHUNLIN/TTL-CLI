@@ -15,6 +15,11 @@ func TestNewRootCommand_HasSeparateServeAndUserCommands(t *testing.T) {
 	if root.Use != "ttl-server" {
 		t.Fatalf("root Use = %q, want ttl-server", root.Use)
 	}
+	for _, name := range []string{"listen", "port", "data-dir", "shutdown-timeout"} {
+		if root.PersistentFlags().Lookup(name) == nil {
+			t.Fatalf("standalone server command must expose --%s", name)
+		}
+	}
 	if commandNamed(root, "serve") == nil {
 		t.Fatal("standalone server command must expose serve")
 	}

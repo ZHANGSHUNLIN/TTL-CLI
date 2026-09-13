@@ -68,13 +68,15 @@ Cobra 命令
 
 ### 4.1 启动与路由
 
-`ttl-server serve` 调用 `internal/server/api.StartServer`：
+`ttl-server serve` 通过 `internal/server/cli` 调用 `internal/server/app.RunWithSignals`，
+由应用层组装 `internal/server/api.NewServerHandler`：
 
 1. 从 `<data-dir>/users.json` 加载用户。
 2. 创建以 `<data-dir>/tenants` 为根目录的租户存储管理器。
 3. 注册 `/api/v1` HTTP 路由。
 4. 用多租户 API Key 中间件包裹路由。
-5. 使用 Go 标准库 `http.ListenAndServe` 监听端口。
+5. 使用显式监听地址创建 Go 标准库 `http.Server`，并在 SIGTERM/SIGINT 或 context
+   取消时执行优雅关闭和租户存储清理。
 
 当前主要接口及实现进度如下。“服务端已实现”只表示 HTTP handler 和存储调用存在，不代表远端客户端已经完整接入。
 
