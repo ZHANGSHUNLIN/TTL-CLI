@@ -30,8 +30,8 @@
       "completed": true
     },
     "W-018": {
-      "status": "Review",
-      "completed": false
+      "status": "Done",
+      "completed": true
     }
   }
 }

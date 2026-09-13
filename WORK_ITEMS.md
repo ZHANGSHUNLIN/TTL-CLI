@@ -89,18 +89,18 @@
 - W-018 修复 TUI 打开 Markdown 链接失败
   - 类型：bugfix
   - 优先级：P1
-  - 当前阶段：Review
+  - 当前阶段：commit
   - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
   - 父任务：无
   - 依赖：无
   - 产物：需求=[`docs/requirements/2026-09-13-W-018-tui-open-markdown-url.md`](docs/requirements/2026-09-13-W-018-tui-open-markdown-url.md)；方案=[`docs/tech-designs/2026-09-13-W-018-tui-open-markdown-url.md`](docs/tech-designs/2026-09-13-W-018-tui-open-markdown-url.md)；方案评审=[`docs/reviews/2026-09-13-W-018-tui-open-markdown-url-design.md`](docs/reviews/2026-09-13-W-018-tui-open-markdown-url-design.md)（`PASS`）；代码评审=[`docs/reviews/2026-09-13-W-018-tui-open-markdown-url-code.md`](docs/reviews/2026-09-13-W-018-tui-open-markdown-url-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-W-018-tui-open-markdown-url.md`](docs/task-breakdowns/2026-09-13-W-018-tui-open-markdown-url.md)；测试=[`docs/tests/2026-09-13-W-018-tui-open-markdown-url.md`](docs/tests/2026-09-13-W-018-tui-open-markdown-url.md)；验收=[`docs/acceptance/2026-09-13-W-018-tui-open-markdown-url.md`](docs/acceptance/2026-09-13-W-018-tui-open-markdown-url.md)
   - 阻塞原因：无
-  - 下一步：创建本地提交，提交成功后更新为 Done
+  - 下一步：无；已完成并提交
   - 目标：TUI 详情页按 o 打开资源时，支持 Markdown 链接值并在 macOS 正确启动目标 URL。
   - 验收：Markdown 链接值可提取并成功交给平台打开器；纯 URL 行为保持兼容；无法识别的值返回清晰错误并保留详情页；回归测试覆盖 macOS 打开参数和失败状态。
   - 检查：`go test ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`go test ./...`、`go test -race ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`./scripts/regression.sh`、`go build -o /tmp/ttl-w018 ./cmd/ttl`、`go build -o /tmp/ttl-server-w018 ./cmd/ttl-server`、`go vet ./...`、`gofmt -s -l .`、`git diff --check` 均通过；macOS 临时 `open` 命令参数捕获测试通过
   - 决策：无需记录，原因：仅修复客户端打开值的解析，不改变架构、存储、协议或配置格式
-  - 备注：根因是平台打开器收到完整 Markdown 字符串而非目标 URL；修复范围限定为客户端 TUI 和 `ttl open` 的输入归一化，平台分支和退出行为保持不变。owner code review 结论为 `PASS`，待本地 commit。
+  - 备注：根因是平台打开器收到完整 Markdown 字符串而非目标 URL；修复范围限定为客户端 TUI 和 `ttl open` 的输入归一化，平台分支和退出行为保持不变。owner code review 结论为 `PASS`；提交：`8e5057b`（`fix: open markdown links from tui`）。
 ## Task Format
 
 ```md
