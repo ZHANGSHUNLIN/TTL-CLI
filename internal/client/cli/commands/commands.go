@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sort"
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/client/opener"
 	"ttl-cli/internal/config"
 	"ttl-cli/internal/core/resource"
 	"ttl-cli/internal/core/text"
@@ -152,18 +153,26 @@ var OpenCmd = &cobra.Command{
 		return PossiblyRun(debug, "open", resources, args[0], func(key resource.ValJsonKey, json resource.ValJson) error {
 			switch os := runtime.GOOS; os {
 			case "darwin":
+				target, err := opener.Target(json.Val)
+				if err != nil {
+					return err
+				}
 				if debug {
 					Println(i18n.T("command.open.macos_detected"))
 				}
-				cmd := exec.Command("open", json.Val)
+				cmd := exec.Command("open", target)
 				return cmd.Run()
 			case "linux":
 				return errors.New(i18n.T("command.open.linux_not_supported"))
 			case "windows":
-				if debug {
-					Println(i18n.T("command.open.windows_detected"), json.Val)
+				target, err := opener.Target(json.Val)
+				if err != nil {
+					return err
 				}
-				cmd := exec.Command("explorer", json.Val)
+				if debug {
+					Println(i18n.T("command.open.windows_detected"), target)
+				}
+				cmd := exec.Command("explorer", target)
 				return cmd.Run()
 			default:
 				return fmt.Errorf(i18n.T("command.open.system_not_supported"), os)

@@ -85,6 +85,22 @@
   - 检查：`gofmt -s -l .`、`go test ./...`、`go test ./integration_test/...`、`go test -race ./...`、`go vet ./...`、`go test ./internal/architecture`、`./scripts/regression.sh`、`./scripts/cli-composability.sh`、双二进制构建、`./scripts/verify.sh`、`git diff --check` 均通过。
   - 决策：[`docs/decisions/2026-09-13-code-structure-convergence.md`](docs/decisions/2026-09-13-code-structure-convergence.md)（`adopted`，一次性切换与最终归属）；方案评审已更新为 `PASS`。
   - 备注：W-003/W-004/W-006 的历史完成证据不回退；W-017 以当前代码为事实完成一次性结构切换。T-01～T-07 仅表示内部依赖顺序，不产生中间交付物。2026-09-13 owner code review 结论为 `PASS`，实现、测试、交付验收和本地 commit 均已完成；提交：`3ca3dcb`（`refactor: converge client and server package boundaries`）。
+
+- W-018 修复 TUI 打开 Markdown 链接失败
+  - 类型：bugfix
+  - 优先级：P1
+  - 当前阶段：Review
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：无
+  - 产物：需求=[`docs/requirements/2026-09-13-W-018-tui-open-markdown-url.md`](docs/requirements/2026-09-13-W-018-tui-open-markdown-url.md)；方案=[`docs/tech-designs/2026-09-13-W-018-tui-open-markdown-url.md`](docs/tech-designs/2026-09-13-W-018-tui-open-markdown-url.md)；方案评审=[`docs/reviews/2026-09-13-W-018-tui-open-markdown-url-design.md`](docs/reviews/2026-09-13-W-018-tui-open-markdown-url-design.md)（`PASS`）；代码评审=[`docs/reviews/2026-09-13-W-018-tui-open-markdown-url-code.md`](docs/reviews/2026-09-13-W-018-tui-open-markdown-url-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-13-W-018-tui-open-markdown-url.md`](docs/task-breakdowns/2026-09-13-W-018-tui-open-markdown-url.md)；测试=[`docs/tests/2026-09-13-W-018-tui-open-markdown-url.md`](docs/tests/2026-09-13-W-018-tui-open-markdown-url.md)；验收=[`docs/acceptance/2026-09-13-W-018-tui-open-markdown-url.md`](docs/acceptance/2026-09-13-W-018-tui-open-markdown-url.md)
+  - 阻塞原因：无
+  - 下一步：创建本地提交，提交成功后更新为 Done
+  - 目标：TUI 详情页按 o 打开资源时，支持 Markdown 链接值并在 macOS 正确启动目标 URL。
+  - 验收：Markdown 链接值可提取并成功交给平台打开器；纯 URL 行为保持兼容；无法识别的值返回清晰错误并保留详情页；回归测试覆盖 macOS 打开参数和失败状态。
+  - 检查：`go test ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`go test ./...`、`go test -race ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`./scripts/regression.sh`、`go build -o /tmp/ttl-w018 ./cmd/ttl`、`go build -o /tmp/ttl-server-w018 ./cmd/ttl-server`、`go vet ./...`、`gofmt -s -l .`、`git diff --check` 均通过；macOS 临时 `open` 命令参数捕获测试通过
+  - 决策：无需记录，原因：仅修复客户端打开值的解析，不改变架构、存储、协议或配置格式
+  - 备注：根因是平台打开器收到完整 Markdown 字符串而非目标 URL；修复范围限定为客户端 TUI 和 `ttl open` 的输入归一化，平台分支和退出行为保持不变。owner code review 结论为 `PASS`，待本地 commit。
 ## Task Format
 
 ```md

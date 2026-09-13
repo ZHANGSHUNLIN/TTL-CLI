@@ -3,6 +3,8 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -221,6 +223,31 @@ func TestModel_OpenFailureKeepsDetailScreen(t *testing.T) {
 	model = updated.(Model)
 	if model.screen != detailScreen || model.busy || !errors.Is(model.err, openErr) || quitCmd != nil {
 		t.Fatalf("open failure state = screen:%v busy:%v err:%v quit:%v", model.screen, model.busy, model.err, quitCmd != nil)
+	}
+}
+
+func TestOpenExternalResource_ExtractsMarkdownTarget(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS opener behavior")
+	}
+	tmp := t.TempDir()
+	argsFile := filepath.Join(tmp, "args")
+	openScript := filepath.Join(tmp, "open")
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$1\" > %q\n", argsFile)
+	if err := os.WriteFile(openScript, []byte(script), 0755); err != nil {
+		t.Fatalf("write fake open: %v", err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if err := openExternalResource("[example](https://example.com/path)"); err != nil {
+		t.Fatalf("openExternalResource() error = %v", err)
+	}
+	got, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read fake open args: %v", err)
+	}
+	if string(got) != "https://example.com/path" {
+		t.Fatalf("open target = %q, want %q", got, "https://example.com/path")
 	}
 }
 

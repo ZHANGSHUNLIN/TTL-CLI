@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	clientapp "ttl-cli/internal/client/app"
+	"ttl-cli/internal/client/opener"
 	"ttl-cli/internal/i18n"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -655,9 +656,17 @@ func (m Model) View() string {
 func openExternalResource(value string) error {
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", value).Run()
+		target, err := opener.Target(value)
+		if err != nil {
+			return err
+		}
+		return exec.Command("open", target).Run()
 	case "windows":
-		return exec.Command("explorer", value).Run()
+		target, err := opener.Target(value)
+		if err != nil {
+			return err
+		}
+		return exec.Command("explorer", target).Run()
 	case "linux":
 		return errors.New(uiText("tui.error_open_linux", "opening resources is not supported on Linux"))
 	default:
