@@ -38,8 +38,8 @@ elif [[ ! -x "$BINARY" ]]; then
 fi
 
 cat > "$TEST_CONF" << EOF
-db_path = $TEST_DIR/data.bbolt
-storage_type = bbolt
+db_path = $TEST_DIR/data.sqlite
+storage_type = local
 EOF
 
 run_cli() {
@@ -90,14 +90,14 @@ if run_cli ui > "$TEST_DIR/ui.stdout" 2> "$TEST_DIR/ui.stderr"; then
     exit 1
 fi
 grep -Fq "interactive terminal" "$TEST_DIR/ui.stdout"
-if [[ -e "$TEST_DIR/data.bbolt" ]]; then
+if [[ -e "$TEST_DIR/data.sqlite" ]]; then
     echo "ttl ui 在非 TTY 门禁前打开了数据库" >&2
     exit 1
 fi
 
 echo "   - add/get"
 run_cli add "test-resource" "https://example.com" > /dev/null
-assert_file_exists "$TEST_DIR/data.bbolt"
+assert_file_exists "$TEST_DIR/data.sqlite"
 assert_cli_contains "example.com" get test-resource
 run_cli add "deployment-note" "contains-secret" > /dev/null
 if run_cli get secret > /dev/null 2>&1; then
@@ -153,7 +153,7 @@ assert_cli_contains "总操作次数" audit
 
 echo "   - version/config/tags"
 assert_cli_matches "[0-9]+\.[0-9]+" version
-assert_cli_contains "$TEST_DIR/data.bbolt" config
+assert_cli_contains "$TEST_DIR/data.sqlite" config
 assert_cli_contains "$TEST_CONF" config
 assert_cli_contains "ci" tags
 run_cli add "tag-test-1" "value1" -t work > /dev/null
@@ -185,14 +185,14 @@ assert_cli_contains "life" workspace list
 run_cli workspace switch work > /dev/null
 assert_cli_contains "work" workspace current
 run_cli add "work-only-resource" "work-value" > /dev/null
-assert_file_exists "$TEST_DIR/workspaces/work.bbolt"
+assert_file_exists "$TEST_DIR/workspaces/work.sqlite"
 run_cli workspace switch life > /dev/null
 if run_cli get "work-only-resource" > /dev/null 2>&1; then
     echo "工作空间之间读取到了不应存在的资源" >&2
     exit 1
 fi
 run_cli add "life-only-resource" "life-value" > /dev/null
-assert_file_exists "$TEST_DIR/workspaces/life.bbolt"
+assert_file_exists "$TEST_DIR/workspaces/life.sqlite"
 assert_cli_contains "life-value" get "life-only-resource"
 assert_cli_contains "Database" workspace show work
 assert_cli_contains "Resources:" workspace show work
@@ -200,7 +200,7 @@ run_cli ws work > /dev/null
 assert_cli_contains "work-value" get "work-only-resource"
 run_cli workspace switch work > /dev/null
 run_cli workspace delete life > /dev/null
-assert_file_not_exists "$TEST_DIR/workspaces/life.bbolt"
+assert_file_not_exists "$TEST_DIR/workspaces/life.sqlite"
 assert_cli_contains "work" workspace list
 if assert_cli_contains "life" workspace list; then
     echo "删除工作空间后仍然能看到 life" >&2

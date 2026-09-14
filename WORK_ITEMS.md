@@ -84,6 +84,38 @@
   - 检查：`go test ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`go test ./...`、`go test -race ./internal/client/opener ./internal/client/tui ./internal/client/cli`、`./scripts/regression.sh`、`go build -o /tmp/ttl-w018 ./cmd/ttl`、`go build -o /tmp/ttl-server-w018 ./cmd/ttl-server`、`go vet ./...`、`gofmt -s -l .`、`git diff --check` 均通过；macOS 临时 `open` 命令参数捕获测试通过
   - 决策：无需记录，原因：仅修复客户端打开值的解析，不改变架构、存储、协议或配置格式
   - 备注：根因是平台打开器收到完整 Markdown 字符串而非目标 URL；修复范围限定为客户端 TUI 和 `ttl open` 的输入归一化，平台分支和退出行为保持不变。owner code review 结论为 `PASS`；提交：`8e5057b`（`fix: open markdown links from tui`）。
+
+- W-019 收敛本地与云端存储模式
+  - 类型：feature
+  - 优先级：P1
+  - 当前阶段：Done
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-010
+  - 产物：需求=[`docs/requirements/2026-09-13-W-019-storage-model-redesign.md`](docs/requirements/2026-09-13-W-019-storage-model-redesign.md)；方案=[`docs/tech-designs/2026-09-13-W-019-storage-model-redesign.md`](docs/tech-designs/2026-09-13-W-019-storage-model-redesign.md)；评审=[`docs/reviews/2026-09-13-W-019-storage-model-redesign-design.md`](docs/reviews/2026-09-13-W-019-storage-model-redesign-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-W-019-storage-model-redesign.md`](docs/task-breakdowns/2026-09-13-W-019-storage-model-redesign.md)；测试=[`docs/tests/2026-09-13-W-019-storage-model-redesign.md`](docs/tests/2026-09-13-W-019-storage-model-redesign.md)；验收=[`docs/acceptance/2026-09-13-W-019-storage-model-redesign.md`](docs/acceptance/2026-09-13-W-019-storage-model-redesign.md)
+  - 阻塞原因：无
+  - 下一步：无；已完成并提交
+  - 目标：将客户端当前数据源固定为 local 或 cloud 二选一；普通命令只访问当前数据源；本地存储统一为 SQLite，远程连接可一次配置，切换模式不隐式复制数据。
+  - 验收：客户端只暴露 local/cloud 两种存储模式；local 只访问本地 SQLite，cloud 只访问远程服务；服务端每租户使用独立 data.sqlite；远程 profile 可配置多个但当前应用或 workspace 只有一个活动项；sync 不再作为存储类型；切换数据源不自动复制或覆盖另一端；旧 bbolt/SQLite 文件明确拒绝且不读取、不转换、不覆盖、不删除；W-019 不引入 W-020 的同步、版本或 CRDT 协议。
+  - 检查：方案评审后执行 `gofmt -s -l .`、`go test ./...`、`go test -race ./...`、`go test ./integration_test/...`、`./scripts/regression.sh`、`./scripts/cli-composability.sh`、`go vet ./...`、`./scripts/verify.sh` 和 `git diff --cached --check` 均通过；远端 `10.99.48.2:8900` 部署、健康检查、认证资源读写、租户 SQLite 权限和删除隔离完成；本地模式隔离和旧格式拒绝演练确认源文件未被修改。
+  - 决策：[`服务端按租户使用独立 SQLite 文件`](docs/decisions/2026-09-13-server-tenant-sqlite.md)（`adopted`）；CRDT 同步决策已转交 [`W-020 暂定 CRDT 决策`](docs/decisions/2026-09-13-versioned-crdt-sync.md)（`proposed`）
+  - 备注：本任务仅改造 local/cloud 存储模式、客户端配置、服务端租户 SQLite、旧格式拒绝和生命周期；不提供旧数据迁移或兼容窗口。版本化同步、CRDT 和冲突处理拆分到 W-020，不在本任务中讨论或实现。owner code review、方案评审和交付验收结论均为 `PASS`；提交：`19e3a13`（`feat: converge local and cloud storage modes`）。
+
+- W-020 设计本地与云端数据同步及冲突处理
+  - 类型：feature
+  - 优先级：P1
+  - 当前阶段：requirements
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：W-019
+  - 产物：需求=[`docs/requirements/2026-09-13-W-020-local-cloud-data-sync.md`](docs/requirements/2026-09-13-W-020-local-cloud-data-sync.md)；方案=[`docs/tech-designs/2026-09-13-W-020-local-cloud-data-sync.md`](docs/tech-designs/2026-09-13-W-020-local-cloud-data-sync.md)；评审=[`docs/reviews/2026-09-13-W-020-local-cloud-data-sync-design.md`](docs/reviews/2026-09-13-W-020-local-cloud-data-sync-design.md)；WBS=[`docs/task-breakdowns/2026-09-13-W-020-local-cloud-data-sync.md`](docs/task-breakdowns/2026-09-13-W-020-local-cloud-data-sync.md)；测试=[`docs/tests/2026-09-13-W-020-local-cloud-data-sync.md`](docs/tests/2026-09-13-W-020-local-cloud-data-sync.md)；验收=[`docs/acceptance/2026-09-13-W-020-local-cloud-data-sync.md`](docs/acceptance/2026-09-13-W-020-local-cloud-data-sync.md)
+  - 阻塞原因：无
+  - 下一步：补充需求分析文档并完成 requirements 阶段
+  - 目标：在 local 与 cloud 两个独立存储源之间提供版本化双向同步，单次只处理当前 workspace，采用分类型 CRDT 处理可合并变更，并为无法自动判断的冲突提供可观察、可恢复的人工解决流程。
+  - 验收：sync 不再作为存储类型；同步可独立访问 local/cloud 且一次只作用于一个 workspace；版本、幂等、增量拉取、OR-Set、Multi-Value Register、tombstone 和冲突解决行为有明确需求、方案、测试和验收证据；未评审通过前不实现具体协议。
+  - 检查：待补充
+  - 决策：[`docs/decisions/2026-09-13-versioned-crdt-sync.md`](docs/decisions/2026-09-13-versioned-crdt-sync.md)（`proposed`；具体协议和实现待后续方案评审）
+  - 备注：本任务承接从 W-019 拆出的版本化同步、CRDT 和冲突处理，当前只保留需求骨架和暂定决策，不在 W-019 实施期间展开。
 ## Task Format
 
 ```md

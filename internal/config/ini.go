@@ -9,6 +9,22 @@ import (
 	"strings"
 )
 
+const DefaultStorageType = "local"
+
+// ValidateStorageType rejects removed storage backends instead of silently selecting one.
+func ValidateStorageType(storageType string) error {
+	switch storageType {
+	case "local", "cloud":
+		return nil
+	case "":
+		return nil
+	case "sync":
+		return fmt.Errorf("不支持的存储模式 %q；sync 是独立同步能力，请使用 ttl sync", storageType)
+	default:
+		return fmt.Errorf("不支持的存储模式 %q，仅支持 local 或 cloud", storageType)
+	}
+}
+
 func GetTtlConf() (TtlIni, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -57,10 +73,16 @@ func loadConfFile(path string) (TtlIni, error) {
 		if storagePath := storageSec.Key("path").String(); storagePath != "" {
 			ttlIni.DbPath = storagePath
 		}
+		if remoteName := storageSec.Key("remote").String(); remoteName != "" {
+			ttlIni.RemoteName = remoteName
+		}
 	}
 
 	if ttlIni.StorageType == "" {
-		ttlIni.StorageType = "sqlite"
+		ttlIni.StorageType = DefaultStorageType
+	}
+	if err := ValidateStorageType(ttlIni.StorageType); err != nil {
+		return TtlIni{}, err
 	}
 
 	if err := cfg.Section("bbolt").MapTo(&ttlIni.BoltDB); err != nil {
@@ -71,6 +93,7 @@ func loadConfFile(path string) (TtlIni, error) {
 	}
 
 	ttlIni.Workspaces = make(map[string]WorkspaceConfig)
+	ttlIni.Remotes = make(map[string]RemoteConfig)
 	for _, section := range cfg.Sections() {
 		name := section.Name()
 		if strings.HasPrefix(name, "workspaces.") {
@@ -79,11 +102,25 @@ func loadConfFile(path string) (TtlIni, error) {
 				wsConfig := WorkspaceConfig{
 					DbPath:      section.Key("db_path").String(),
 					StorageType: section.Key("storage_type").String(),
+					RemoteName:  section.Key("remote").String(),
+				}
+				if err := ValidateStorageType(wsConfig.StorageType); err != nil {
+					return TtlIni{}, fmt.Errorf("工作空间 %s: %w", wsName, err)
 				}
 				if wsConfig.StorageType == "" {
 					wsConfig.StorageType = ttlIni.StorageType
 				}
 				ttlIni.Workspaces[wsName] = wsConfig
+			}
+		}
+		if strings.HasPrefix(name, "remotes.") {
+			remoteName := strings.TrimPrefix(name, "remotes.")
+			if remoteName != "" {
+				ttlIni.Remotes[remoteName] = RemoteConfig{
+					URL:           section.Key("url").String(),
+					Account:       section.Key("account").String(),
+					CredentialEnv: section.Key("credential_env").String(),
+				}
 			}
 		}
 	}
@@ -103,7 +140,7 @@ func createDefaultConfig(configPath, dbPath string) (TtlIni, error) {
 	cfg := ini.Empty()
 
 	storageSec := cfg.Section("storage")
-	storageSec.Key("type").SetValue("sqlite")
+	storageSec.Key("type").SetValue(DefaultStorageType)
 
 	if dbPath != "" {
 		storageSec.Key("path").SetValue(dbPath)
@@ -146,7 +183,35 @@ func GetWorkspaceDBPath(confFile string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get user directory: %w", err)
 	}
-	return workspaceName, filepath.Join(homeDir, ".ttl", "data.db"), nil
+	return workspaceName, filepath.Join(homeDir, ".ttl", "data.sqlite"), nil
+}
+
+// LoadRemote returns the active remote profile for the current workspace.
+func LoadRemote(confFile string) (string, RemoteConfig, error) {
+	var ttlConf TtlIni
+	var err error
+	if confFile != "" {
+		ttlConf, err = GetTtlConfFromFile(confFile)
+	} else {
+		ttlConf, err = GetTtlConf()
+	}
+	if err != nil {
+		return "", RemoteConfig{}, err
+	}
+	remoteName := ttlConf.RemoteName
+	if ttlConf.Workspace != "" {
+		if ws, ok := ttlConf.Workspaces[ttlConf.Workspace]; ok && ws.RemoteName != "" {
+			remoteName = ws.RemoteName
+		}
+	}
+	if remoteName == "" {
+		return "", RemoteConfig{}, fmt.Errorf("未配置活动远程 profile")
+	}
+	remote, ok := ttlConf.Remotes[remoteName]
+	if !ok || remote.URL == "" {
+		return "", RemoteConfig{}, fmt.Errorf("远程 profile %q 未配置地址", remoteName)
+	}
+	return remoteName, remote, nil
 }
 
 func ValidateWorkspaceName(name string) bool {
@@ -218,16 +283,14 @@ func CreateWorkspace(confFile, name string) (string, error) {
 		storageType = cfg.Section("").Key("storage_type").String()
 	}
 	if storageType == "" {
-		storageType = "sqlite"
+		storageType = DefaultStorageType
 	}
 
-	// 根据存储类型决定数据库文件后缀
-	dbExt := ".db"
-	if storageType == "local" || storageType == "bbolt" {
-		dbExt = ".bbolt"
+	if err := ValidateStorageType(storageType); err != nil {
+		return "", err
 	}
 
-	dbPath := filepath.Join(wsDir, name+dbExt)
+	dbPath := filepath.Join(wsDir, name+".sqlite")
 
 	sec := cfg.Section(sectionName)
 	sec.Key("db_path").SetValue(dbPath)
@@ -376,7 +439,7 @@ func GetWorkspaceInfo(confFile, name string) (string, string, int, error) {
 		dbPath = ttlConf.DbPath
 		storageType = ttlConf.StorageType
 		if storageType == "" {
-			storageType = "sqlite"
+			storageType = DefaultStorageType
 		}
 	} else {
 		ws, ok := ttlConf.Workspaces[name]
@@ -386,7 +449,7 @@ func GetWorkspaceInfo(confFile, name string) (string, string, int, error) {
 		dbPath = ws.DbPath
 		storageType = ws.StorageType
 		if storageType == "" {
-			storageType = "sqlite"
+			storageType = DefaultStorageType
 		}
 	}
 
@@ -398,60 +461,4 @@ func GetWorkspaceInfo(confFile, name string) (string, string, int, error) {
 	}
 
 	return dbPath, storageType, count, nil
-}
-
-func MigrateToWorkspaces(confFile string) error {
-	path := confFile
-	if path == "" {
-		var err error
-		path, err = GetDefaultConfPath()
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg, err := ini.Load(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			cfg = ini.Empty()
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-				return fmt.Errorf("failed to create config directory: %w", err)
-			}
-		} else {
-			return fmt.Errorf("failed to load config file: %w", err)
-		}
-	}
-
-	storageSec := cfg.Section("storage")
-	oldDbPath := cfg.Section("").Key("db_path").String()
-	storageType := storageSec.Key("type").String()
-	if storageType == "" {
-		storageType = cfg.Section("").Key("storage_type").String()
-	}
-	if storageType == "" {
-		storageType = "sqlite"
-	}
-
-	if oldDbPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user directory: %w", err)
-		}
-		oldDbPath = filepath.Join(homeDir, ".ttl", "data.db")
-	}
-
-	if cfg.HasSection("workspaces.default") {
-		return nil
-	}
-
-	defaultSec := cfg.Section("workspaces.default")
-	defaultSec.Key("db_path").SetValue(oldDbPath)
-	defaultSec.Key("storage_type").SetValue(storageType)
-
-	workspaceSec := cfg.Section("")
-	if !workspaceSec.HasKey("workspace") {
-		workspaceSec.Key("workspace").SetValue("default")
-	}
-
-	return cfg.SaveTo(path)
 }

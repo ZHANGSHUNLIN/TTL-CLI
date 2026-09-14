@@ -67,7 +67,7 @@ func newRootCommand(opts *options) *cobra.Command {
 	root.PersistentFlags().BoolVarP(&opts.debug, "debug", "D", false, i18n.T("root.flag_debug"))
 	root.PersistentFlags().BoolVar(&opts.json, "json", false, "Output versioned JSON for supported resource commands")
 	root.PersistentFlags().BoolVar(&opts.nonInteractive, "non-interactive", false, "Disable interactive input for supported resource commands")
-	root.PersistentFlags().StringVar(&opts.storageType, "storage", "sqlite", i18n.T("root.flag_storage"))
+	root.PersistentFlags().StringVar(&opts.storageType, "storage", "local", i18n.T("root.flag_storage"))
 	root.PersistentFlags().StringVar(&opts.cloudAPIURL, "cloud-url", "", i18n.T("root.flag_cloud_url"))
 	root.PersistentFlags().StringVar(&opts.cloudAPIKey, "cloud-key", "", i18n.T("root.flag_cloud_key"))
 	root.PersistentFlags().IntVar(&opts.cloudTimeout, "cloud-timeout", 30, i18n.T("root.flag_cloud_timeout"))
@@ -90,7 +90,6 @@ func newRootCommand(opts *options) *cobra.Command {
 		commands.EncryptCmd,
 		commands.DecryptCmd,
 		commands.KeyCmd,
-		newMigrateCommand(opts),
 		commands.AuditCmd,
 		commands.HistoryCmd,
 		commands.ExportCmd,
@@ -288,24 +287,32 @@ func newPreRun(opts *options) func(*cobra.Command, []string) error {
 		ctx = context.WithValue(ctx, "confFile", opts.confFile)
 		if !skipDBInit {
 			actualStorageType := opts.storageType
-			if opts.storageType == "sqlite" && !cmd.Flags().Changed("storage") {
+			if !cmd.Flags().Changed("storage") {
 				ttlConf, err := config.GetTtlConfFromFile(opts.confFile)
-				if err == nil {
-					if ttlConf.Workspace != "" {
-						if ws, ok := ttlConf.Workspaces[ttlConf.Workspace]; ok && ws.StorageType != "" {
-							actualStorageType = ws.StorageType
-						}
-					}
-					if actualStorageType == "sqlite" && ttlConf.StorageType != "" {
-						actualStorageType = ttlConf.StorageType
+				if err != nil {
+					return err
+				}
+				actualStorageType = ttlConf.StorageType
+				if ttlConf.Workspace != "" {
+					if ws, ok := ttlConf.Workspaces[ttlConf.Workspace]; ok && ws.StorageType != "" {
+						actualStorageType = ws.StorageType
 					}
 				}
+				if actualStorageType == "" {
+					actualStorageType = config.DefaultStorageType
+				}
+			}
+			if err := config.ValidateStorageType(actualStorageType); err != nil {
+				return err
+			}
+			if cmd.Name() == "sync" {
+				actualStorageType = "local"
 			}
 			if cmd.Name() == "ui" {
 				switch actualStorageType {
-				case "sqlite", "local", "bbolt":
+				case "local":
 				default:
-					return fmt.Errorf("ttl ui only supports local sqlite or bbolt storage")
+					return fmt.Errorf("ttl ui 仅支持 local 存储模式")
 				}
 				detector := opts.isTerminal
 				if detector == nil {
@@ -388,7 +395,19 @@ func newSyncCommand(opts *options) *cobra.Command {
 		Long:  i18n.T("command.sync.long"),
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if opts.cloudAPIURL == "" {
+			if opts.cloudAPIURL == "" || opts.cloudAPIKey == "" {
+				_, profile, err := config.LoadRemote(opts.confFile)
+				if err != nil {
+					return fmt.Errorf("同步需要活动远程 profile: %w", err)
+				}
+				if opts.cloudAPIURL == "" {
+					opts.cloudAPIURL = profile.URL
+				}
+				if opts.cloudAPIKey == "" && profile.CredentialEnv != "" {
+					opts.cloudAPIKey = os.Getenv(profile.CredentialEnv)
+				}
+			}
+			if opts.cloudAPIURL == "" || opts.cloudAPIKey == "" {
 				return errors.New(i18n.T("command.sync.need_cloud_url"))
 			}
 			localResources, err := opts.service.GetAllResources()
@@ -452,44 +471,6 @@ func executeInteractiveSync(diff ttlsync.DiffResult, localStorage, remoteStorage
 	default:
 		return fmt.Errorf(i18n.T("command.sync.invalid_choice"), choice)
 	}
-}
-
-func newMigrateCommand(opts *options) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "migrate [source] [target]",
-		Short: i18n.T("command.migrate.short"),
-		Long:  i18n.T("command.migrate.long"),
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			sourceType, targetType := args[0], args[1]
-			if sourceType != "local" && sourceType != "cloud" {
-				return errors.New(i18n.T("command.migrate.invalid_source"))
-			}
-			if targetType != "local" && targetType != "cloud" {
-				return errors.New(i18n.T("command.migrate.invalid_target"))
-			}
-			if sourceType == targetType {
-				return errors.New(i18n.T("command.migrate.same_type"))
-			}
-
-			var sourceAPIURL, sourceAPIKey string
-			var sourceTimeout int
-			if sourceType == "cloud" {
-				sourceAPIURL, _ = cmd.Flags().GetString("source-url")
-				sourceAPIKey, _ = cmd.Flags().GetString("source-key")
-				sourceTimeout, _ = cmd.Flags().GetInt("source-timeout")
-				if sourceAPIURL == "" || sourceAPIKey == "" {
-					return errors.New(i18n.T("command.migrate.need_source_config"))
-				}
-			}
-			return clientapp.MigrateData(sourceType, targetType, sourceAPIURL, sourceAPIKey, sourceTimeout,
-				opts.cloudAPIURL, opts.cloudAPIKey, opts.cloudTimeout, opts.debug, opts.confFile, opts.confFile)
-		},
-	}
-	cmd.Flags().String("source-url", "", i18n.T("command.migrate.flag_source_url"))
-	cmd.Flags().String("source-key", "", i18n.T("command.migrate.flag_source_key"))
-	cmd.Flags().Int("source-timeout", 30, i18n.T("command.migrate.flag_source_timeout"))
-	return cmd
 }
 
 func replaceSpecialValuesFromHistory(cmd *cobra.Command, service *clientapp.Service, args []string) {

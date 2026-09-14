@@ -15,11 +15,14 @@ import (
 
 func TestNewRootCommand_HasClientCommands(t *testing.T) {
 	root := NewRootCommand()
-	for _, name := range []string{"add", "get", "pick", "sync", "migrate", "workspace", "ui"} {
+	for _, name := range []string{"add", "get", "pick", "sync", "workspace", "ui"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil || cmd == nil || cmd.Name() != name {
 			t.Fatalf("root command does not expose %s: cmd=%v err=%v", name, cmd, err)
 		}
+	}
+	if _, _, err := root.Find([]string{"migrate"}); err == nil {
+		t.Fatal("client root must not expose removed migrate command")
 	}
 	if _, _, err := root.Find([]string{"server"}); err == nil {
 		t.Fatal("client root must not expose server compatibility command")
@@ -33,9 +36,9 @@ func TestUICommand_GatesUnsupportedStorageAndNonTerminalBeforeOpen(t *testing.T)
 		terminal  bool
 		wantError string
 	}{
-		{name: "cloud", storage: "cloud", terminal: true, wantError: "only supports local"},
-		{name: "sync", storage: "sync", terminal: true, wantError: "only supports local"},
-		{name: "non terminal", storage: "sqlite", terminal: false, wantError: "interactive terminal"},
+		{name: "cloud", storage: "cloud", terminal: true, wantError: "仅支持 local"},
+		{name: "sync", storage: "sync", terminal: true, wantError: "不支持的存储模式"},
+		{name: "non terminal", storage: "local", terminal: false, wantError: "interactive terminal"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			openCalls := 0

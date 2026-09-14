@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -38,7 +39,8 @@ func TestUserStore_LifecycleAndPersistence(t *testing.T) {
 }
 
 func TestStorageManager_IsolatesTenants(t *testing.T) {
-	manager := NewStorageManager(t.TempDir())
+	dataDir := t.TempDir()
+	manager := NewStorageManager(dataDir)
 	defer manager.CloseAll()
 
 	alice, err := manager.GetStorage("alice")
@@ -52,4 +54,29 @@ func TestStorageManager_IsolatesTenants(t *testing.T) {
 	if alice == bob {
 		t.Fatal("different users must not share a storage instance")
 	}
+	if _, err := os.Stat(filepath.Join(dataDir, "alice", "data.sqlite")); err != nil {
+		t.Fatalf("alice sqlite file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "bob", "data.sqlite")); err != nil {
+		t.Fatalf("bob sqlite file: %v", err)
+	}
+}
+
+func TestStorageManager_RemoveStorage_IsolatesData(t *testing.T) {
+	dataDir := t.TempDir()
+	manager := NewStorageManager(dataDir)
+	if _, err := manager.GetStorage("alice"); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.RemoveStorage("alice"); err != nil {
+		t.Fatalf("RemoveStorage: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "alice")); !os.IsNotExist(err) {
+		t.Fatalf("alice directory still present: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dataDir, ".deleted"))
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("deleted entries = %d, err = %v", len(entries), err)
+	}
+	_ = manager.CloseAll()
 }

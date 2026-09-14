@@ -298,7 +298,7 @@
     "short": "개인 데이터 관리 시스템",
     "long": "리소스와 태그를 관리하기 위한 개인 데이터 관리 시스템.\n리소스 추가, 가져오기, 삭제, 태그 관리 등의 작업을 지원합니다.",
     "flag_debug": "디버그 모드 활성화",
-    "flag_storage": "저장소 유형: local, cloud, sync",
+    "flag_storage": "저장소 유형: local, cloud",
     "flag_cloud_url": "클라우드 저장소 API URL",
     "flag_cloud_key": "클라우드 저장소 API 키",
     "flag_cloud_timeout": "클라우드 저장소 타임아웃(초)",

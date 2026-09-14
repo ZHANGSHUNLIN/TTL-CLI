@@ -11,17 +11,15 @@
 /opt/ttl-server/releases/<version>/ttl-server
 /opt/ttl-server/current -> /opt/ttl-server/releases/<version>
 /var/lib/ttl-server/users.json
-/var/lib/ttl-server/tenants/<user-id>/data.db  # 当前 W-010 实现
-# W-019 完成迁移后：
 /var/lib/ttl-server/tenants/<user-id>/data.sqlite
 ```
 
 服务以专用非 root 用户运行。数据目录持久化且只允许 owner 访问；`users.json` 包含
 API Key，必须保持 `0600`。发布归档不能包含用户数据、客户端配置或秘密。
 
-W-019 当前仍处于文档和方案阶段，线上已有租户继续使用 `data.db`；不得手动将该文件按
-SQLite 打开。完成 W-019 的显式迁移、备份和校验后，目标文件名为 `data.sqlite`，迁移失败
-时保留源文件和备份，详见[服务端按租户使用独立 SQLite 文件](decisions/2026-09-13-server-tenant-sqlite.md)。
+W-019 已将服务端租户存储收敛为独立的 `data.sqlite`。新版本不读取或迁移旧 `data.db`、
+`data.bbolt` 或旧 schema；部署前应由运维自行备份旧目录，并为新版本初始化独立的
+`data.sqlite`。详见[服务端按租户使用独立 SQLite 文件](decisions/2026-09-13-server-tenant-sqlite.md)。
 
 ## 启动契约
 

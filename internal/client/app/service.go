@@ -3,14 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"ttl-cli/internal/client/remote"
-	clientsync "ttl-cli/internal/client/sync"
 	"ttl-cli/internal/config"
 	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
-	storagebbolt "ttl-cli/internal/storage/bbolt"
 	storagesqlite "ttl-cli/internal/storage/sqlite"
 )
 
@@ -44,8 +43,8 @@ func (s *Service) Storage() corestorage.Storage {
 	return s.storage
 }
 
-func (s *Service) LocalStorage() (*storagebbolt.LocalStorage, bool) {
-	localStorage, ok := s.Storage().(*storagebbolt.LocalStorage)
+func (s *Service) LocalStorage() (*storagesqlite.SQLiteStorage, bool) {
+	localStorage, ok := s.Storage().(*storagesqlite.SQLiteStorage)
 	return localStorage, ok
 }
 
@@ -221,44 +220,38 @@ func (s *Service) CleanupResourceHistory(resourceKey string) (historyErr, auditE
 
 // OpenStorage creates and initializes the selected client storage.
 func OpenStorage(storageType, cloudAPIURL, cloudAPIKey string, cloudTimeout int, confFile string) (corestorage.Storage, error) {
-	boltTimeout := 0
-	if confFile == "" {
-		if defaultConfPath, err := config.GetDefaultConfPath(); err == nil {
-			if ttlConf, err := config.GetTtlConfFromFile(defaultConfPath); err == nil {
-				boltTimeout = ttlConf.BoltDB.Timeout
-			}
-		}
-	} else if ttlConf, err := config.GetTtlConfFromFile(confFile); err == nil {
-		boltTimeout = ttlConf.BoltDB.Timeout
+	if storageType == "" {
+		storageType = config.DefaultStorageType
+	}
+	if err := config.ValidateStorageType(storageType); err != nil {
+		return nil, err
 	}
 
 	var storage corestorage.Storage
 	switch storageType {
-	case "sqlite":
+	case "local":
 		sqliteStorage := storagesqlite.NewSQLiteStorage()
 		sqliteStorage.SetConfigFile(confFile)
 		storage = sqliteStorage
-	case "local", "bbolt":
-		localStorage := storagebbolt.NewLocalStorage()
-		localStorage.SetConfigFile(confFile)
-		if boltTimeout > 0 {
-			localStorage.SetTimeout(boltTimeout)
-		}
-		storage = localStorage
 	case "cloud":
 		if cloudAPIURL == "" || cloudAPIKey == "" {
-			return nil, fmt.Errorf("cloud storage requires API URL and key")
+			_, profile, err := config.LoadRemote(confFile)
+			if err != nil {
+				return nil, fmt.Errorf("云端存储缺少活动远程配置: %w", err)
+			}
+			if cloudAPIURL == "" {
+				cloudAPIURL = profile.URL
+			}
+			if cloudAPIKey == "" && profile.CredentialEnv != "" {
+				cloudAPIKey = os.Getenv(profile.CredentialEnv)
+			}
+		}
+		if cloudAPIURL == "" || cloudAPIKey == "" {
+			return nil, fmt.Errorf("云端存储需要 API 地址和凭据")
 		}
 		storage = remote.NewStorage(cloudAPIURL, cloudAPIKey, cloudTimeout)
-	case "sync":
-		localStorage := storagebbolt.NewLocalStorage()
-		localStorage.SetConfigFile(confFile)
-		if boltTimeout > 0 {
-			localStorage.SetTimeout(boltTimeout)
-		}
-		storage = clientsync.NewMirroredStorage(localStorage, remote.NewStorage(cloudAPIURL, cloudAPIKey, cloudTimeout))
 	default:
-		return nil, fmt.Errorf("unsupported storage type: %s (supported: sqlite, local/bbolt, cloud, sync)", storageType)
+		return nil, fmt.Errorf("不支持的存储模式: %s", storageType)
 	}
 
 	if err := storage.Init(); err != nil {
@@ -269,5 +262,12 @@ func OpenStorage(storageType, cloudAPIURL, cloudAPIKey string, cloudTimeout int,
 }
 
 func GetDBPath(confFile, storageType string) (string, error) {
-	return storagebbolt.GetDBPath(confFile, storageType)
+	if storageType == "" {
+		storageType = config.DefaultStorageType
+	}
+	if err := config.ValidateStorageType(storageType); err != nil {
+		return "", err
+	}
+	_, path, err := config.GetWorkspaceDBPath(confFile)
+	return path, err
 }

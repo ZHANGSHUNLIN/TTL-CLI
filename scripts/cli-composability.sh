@@ -38,8 +38,8 @@ elif [[ ! -x "$BINARY" ]]; then
 fi
 
 cat > "$TEST_CONF" << EOF
-db_path = $TEST_DIR/data.bbolt
-storage_type = bbolt
+db_path = $TEST_DIR/data.sqlite
+storage_type = local
 EOF
 
 run_cli() {

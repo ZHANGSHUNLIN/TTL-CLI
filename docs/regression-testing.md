@@ -65,7 +65,7 @@ go vet ./...
 | 用户入口和持久化生命周期可用 | `scripts/regression.sh` |
 | 自定义配置、数据库、密钥和工作空间不写入真实用户目录 | 黑盒文件路径断言和测试包临时 `HOME` |
 | client、server、core 依赖方向受控 | `internal/architecture/dependencies_test.go` |
-| SQLite/bbolt 当前存储格式可正确读写 | 对应存储包和集成测试 |
+| local SQLite 当前存储格式可正确读写，旧格式明确拒绝 | SQLite 存储包和集成测试 |
 | 并发访问没有已知数据竞争 | `go test -race ./...` |
 
 人工验收仍负责判断产品目标和迁移阶段是否完成，例如旧入口是否已经删除、TUI 是否已完成，以及当前改动是否符合任务范围。自动检查不能替代这些产品决策。

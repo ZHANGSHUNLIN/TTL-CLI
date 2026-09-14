@@ -333,7 +333,7 @@
     "short": "个人数据管理体系",
     "long": "个人数据管理体系，用于管理资源和标签。\n支持多种操作如添加、获取、删除资源，以及管理标签等。",
     "flag_debug": "开启 debug 模式",
-    "flag_storage": "存储类型: local, cloud, sync",
+    "flag_storage": "存储类型: local, cloud",
     "flag_cloud_url": "云存储API地址",
     "flag_cloud_key": "云存储API密钥",
     "flag_cloud_timeout": "云存储超时时间(秒)",

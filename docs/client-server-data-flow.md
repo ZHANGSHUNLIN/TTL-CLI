@@ -20,17 +20,14 @@ CLI 和 TUI 使用相同的账户、API Key、业务服务、存储契约和远�
   v
 ttl client（当前 CLI；TUI 计划中）
   |
-  +-- sqlite（默认）------------> 本地 SQLite
+  +-- local --------------------> 本地 SQLite
   |
-  +-- local / bbolt -----------> 本地 bbolt
+  +-- cloud -- HTTP + API Key -> ttl-server -> 用户独立 SQLite
   |
-  +-- cloud -- HTTP + API Key -> ttl-server -> 用户独立 bbolt
-  |
-  +-- sync ---+----------------> 本地 bbolt
-              +-- HTTP + API Key -> ttl-server -> 用户独立 bbolt
+  +-- sync（独立同步能力）------> 按 W-020 读取 local 与 cloud
 ```
 
-`internal/client/app.OpenStorage` 根据 `--storage` 和配置选择实际存储。CLI 的资源命令通过当前命令 context 中的 `app.Service` 访问存储，因此同一条 `add/get/update/del` 命令可以落到本地数据库、远端 API 或组合存储。
+`internal/client/app.OpenStorage` 根据 `--storage` 和配置选择实际存储。CLI 的资源命令通过当前命令 context 中的 `app.Service` 访问单一数据源；`sync` 是独立命令，不是存储模式。
 
 ## 3. 客户端如何存储
 
@@ -38,14 +35,10 @@ ttl client（当前 CLI；TUI 计划中）
 
 | 模式 | 读取位置 | 写入位置 | 是否自动访问后端 |
 | --- | --- | --- | --- |
-| `sqlite` | 本地 SQLite | 本地 SQLite | 否 |
-| `local` / `bbolt` | 本地 bbolt | 本地 bbolt | 否 |
+| `local` | 本地 SQLite | 本地 SQLite | 否 |
 | `cloud` | 后端 HTTP API | 后端 HTTP API | 是，每次操作都访问后端 |
-| `sync` | 本地 bbolt | 先本地 bbolt，后远端 HTTP API | 是，每次修改都访问后端 |
 
-默认模式是 `sqlite`。配置默认位于 `~/.ttl/ttl.ini`，默认 SQLite 数据库位于 `~/.ttl/data.db`。工作空间可以在 INI 中指定独立的数据库路径和存储类型；未指定时沿用全局设置。
-
-`sync` 模式当前固定组合本地 bbolt 和远端 HTTP 存储，不会沿用默认 SQLite 作为本地副本。它读取本地，资源增、删、改时先写本地，成功后再写远端。
+默认模式是 `local`。配置默认位于 `~/.ttl/ttl.ini`，默认 SQLite 数据库位于 `~/.ttl/data.sqlite`。工作空间可以在 INI 中指定独立的数据库路径、存储类型和活动远程 profile；未指定时沿用全局设置。
 
 ### 3.2 客户端写入链路
 
@@ -57,9 +50,7 @@ Cobra 命令
   -> internal/client/app.Service.SaveResource
   -> 当前 core/storage.Storage
        -> SQLiteStorage
-       -> bbolt.LocalStorage
        -> remote.Storage
-       -> client/sync.MirroredStorage
 ```
 
 客户端由 `internal/client/cli` 创建一个显式 `internal/client/app.Service`，通过命令 context 注入；命令执行结束后由客户端入口关闭服务。命令和同步流程不读取全局存储状态。
@@ -130,12 +121,12 @@ Authorization: Bearer <API_KEY>
 ├── users.json
 └── tenants/
     ├── alice/
-    │   └── data.db
+    │   └── data.sqlite
     └── bob/
-        └── data.db
+        └── data.sqlite
 ```
 
-`users.json` 包含用户信息、API Key 和启用状态，保存权限为 `0600`。每个用户的数据存放在独立的 bbolt 文件中；服务端首次访问用户存储时打开数据库，并在进程内缓存连接。
+`users.json` 包含用户信息、API Key 和启用状态，保存权限为 `0600`。每个用户的数据存放在独立的 SQLite 文件中；服务端首次访问用户存储时打开数据库，并在进程内缓存连接。
 
 ## 5. 客户端如何连接后端
 
@@ -164,13 +155,25 @@ go build -o ttl-server ./cmd/ttl-server
 
 ### 5.2 客户端参数
 
-远端连接目前由命令行参数传入：
+远端连接可以由当前 workspace 的 remote profile 提供，也可以由命令行参数临时覆盖：
 
 | 参数 | 含义 | 默认值 |
 | --- | --- | --- |
 | `--cloud-url` | 服务端根地址，例如 `http://127.0.0.1:8080` | 空 |
 | `--cloud-key` | 用户 API Key | 空 |
 | `--cloud-timeout` | HTTP 超时秒数 | `30` |
+
+配置示例：
+
+```ini
+[storage]
+type = cloud
+remote = primary
+
+[remotes.primary]
+url = http://127.0.0.1:8080
+credential_env = TTL_PRIMARY_KEY
+```
 
 例如，检查同步差异但不修改数据：
 
@@ -190,7 +193,7 @@ go build -o ttl-server ./cmd/ttl-server
   sync --direction push
 ```
 
-当前客户端代码不会从 README 示例中的 `[server] endpoint/api_key` 配置读取连接信息。配置落盘方式尚未收敛前，应以上述参数为准。API Key 不应写入仓库、示例配置或长期文档中的真实值。
+API Key 不应写入仓库、示例配置或长期文档中的真实值；推荐通过 `credential_env` 指向环境变量。
 
 `remote.Storage.Init` 只创建带超时的 HTTP Client，不会主动进行健康检查；地址、网络和认证问题通常在第一次 API 请求时返回。
 
@@ -198,7 +201,7 @@ go build -o ttl-server ./cmd/ttl-server
 
 ### 6.1 默认本地模式
 
-`sqlite`、`local` 和 `bbolt` 模式不会在启动、退出或后台定时同步。普通资源命令只改变本地数据库。只有用户显式执行 `ttl sync` 才会读取远端并比较两端数据。
+`local` 模式不会在启动、退出或后台定时同步。普通资源命令只改变本地 SQLite。只有用户显式执行 `ttl sync` 才会读取远端并比较两端数据。
 
 显式同步的步骤是：
 
@@ -223,21 +226,9 @@ go build -o ttl-server ./cmd/ttl-server
 
 显式同步不是合并算法。`pull` 会删除本地独有资源，`push` 会删除远端独有资源；冲突由权威端直接覆盖目标端。
 
-### 6.2 `sync` 镜像模式
+### 6.2 `cloud` 模式
 
-`--storage sync` 的修改操作会立即尝试写远端：
-
-```text
-写本地 bbolt
-  -> 本地成功
-  -> 调用远端 API
-```
-
-本地失败时不会请求远端。远端失败时本地修改已经提交，目前没有事务回滚、离线队列、自动重试或补偿操作，因此可能出现两端不一致。出现这种情况时只能检查差异并再次执行显式同步。
-
-### 6.3 `cloud` 模式
-
-`--storage cloud` 不维护本地业务副本。资源命令直接通过 HTTP 操作后端，因此这里不存在“稍后同步”的阶段；每次请求成功即表示后端已处理该操作。
+`--storage cloud` 不维护本地业务副本。资源命令直接通过 HTTP 操作后端；每次请求成功即表示后端已处理该操作。同步和冲突处理规则见 W-020。
 
 ## 7. 当前同步边界与已知限制
 
@@ -248,7 +239,7 @@ go build -o ttl-server ./cmd/ttl-server
 - 远端存储的部分审计、历史和日志写入方法仍是空实现，不能视为完整数据同步。
 - 远端标签读取已实现；服务端也提供独立的标签添加和删除路由，但 `remote.Storage` 尚未接入这些路由。
 - 客户端创建资源时会发送 `tags`，但服务端创建请求 DTO 当前没有接收标签；远端更新的客户端和服务端 DTO 都只处理 `value`。因此创建、更新和同步含标签的资源尚未端到端完成，标签可能丢失或无法按权威端覆盖。
-- `sync` 镜像模式先写本地再写远端，远端失败不会回滚本地。
+- `sync` 当前仍是独立命令，具体版本、增量和冲突语义由 W-020 定义；W-019 不把它作为存储模式。
 - HTTP API 没有协议版本协商；开发阶段变更由客户端和服务端同步发布。
 - 服务端使用明文 HTTP 监听，没有内建 TLS、健康检查端点或优雅关闭流程。远程部署时应在受控网络或 HTTPS 反向代理后使用，并由部署层配置防火墙和访问控制。
 - 服务端监听 `:port`，即所有网络接口，而不只监听本机回环地址。
@@ -269,7 +260,7 @@ go build -o ttl-server ./cmd/ttl-server
 | 场景 | 可能交错 | 当前结果 | 风险 |
 | --- | --- | --- | --- |
 | 两个客户端同时更新同一 key | A、B 都读取 v1；A 写 v2；B 写 v3 | 最后完成的写入覆盖前一次写入 | A 的修改静默丢失 |
-| 一个客户端更新，另一个删除 | A 读取资源；B 删除；A 随后更新 | bbolt 的 `UpdateResource` 会直接 `Put`，SQLite 的更新路径也可重新插入 | 被删除资源可能复活；执行顺序相反时更新可能丢失 |
+| 一个客户端更新，另一个删除 | A 读取资源；B 删除；A 随后更新 | SQLite 的更新路径也可重新插入 | 被删除资源可能复活；执行顺序相反时更新可能丢失 |
 | 两个客户端同时加标签 | A、B 都读取旧标签；各自添加不同标签并保存整份资源 | 后写入者覆盖先写入者的标签集合 | 某一方新增标签丢失 |
 | 一个客户端删标签，另一个更新正文 | 两端都基于旧快照保存整份资源 | 后写请求携带的旧标签可能恢复已删除标签，或正文更新被覆盖 | 字段间相互覆盖 |
 | 两个客户端同时创建同一 key | 两端都通过“是否存在”检查，然后分别保存 | 检查和保存不是一个原子操作，两个请求都可能报告成功 | 后写值覆盖先写值，客户端却都以为创建成功 |
@@ -282,10 +273,10 @@ go build -o ttl-server ./cmd/ttl-server
 
 ### 8.2 已有保护能解决什么
 
-- bbolt 事务和 SQLite 事务能力可以串行化单个数据库写操作，主要防止存储文件损坏。
+- SQLite 事务能力可以串行化单个数据库写操作，主要防止存储文件损坏。
 - `StorageManager` 的互斥锁只保护同一服务进程内“为用户创建或取得存储实例”的缓存操作，不保护资源业务读改写。
 - `UserStore` 的互斥锁只保护同一个 `UserStore` 实例；服务进程和每次管理命令创建的是不同实例，因此没有跨实例、跨进程保护。
-- 本地 bbolt 会阻止多个进程同时以当前方式打开同一数据库文件；这会返回锁超时错误，而不是协调两个本地客户端共同修改。
+- 本地 SQLite 通过连接池和 busy timeout 限制并发写入；这不会协调多个客户端共同修改同一资源。
 
 这些机制不能检测客户端使用了旧数据，也不能避免丢失更新、删除后复活或过期同步覆盖。
 
@@ -314,7 +305,7 @@ go build -o ttl-server ./cmd/ttl-server
 | 客户端存储选择与生命周期 | `internal/client/app/` |
 | 共享存储接口 | `internal/core/storage/storage.go` |
 | SQLite 实现 | `internal/storage/sqlite/storage.go` |
-| bbolt 实现 | `internal/storage/bbolt/storage.go` |
+| 旧 bbolt 实现（非当前入口） | `internal/storage/bbolt/storage.go` |
 | HTTP 远端存储 | `internal/client/remote/storage.go` |
 | 镜像读写存储 | `internal/client/sync/storage.go` |
 | 差异计算和 push/pull | `internal/client/sync/sync.go` |

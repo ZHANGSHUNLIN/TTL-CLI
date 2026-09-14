@@ -298,7 +298,7 @@
     "short": "個人データ管理システム",
     "long": "リソースとタグを管理するための個人データ管理システム。\nリソースの追加、取得、削除、タグの管理などの操作をサポートします。",
     "flag_debug": "デバッグモードを有効化",
-    "flag_storage": "ストレージタイプ: local, cloud, sync",
+    "flag_storage": "ストレージタイプ: local, cloud",
     "flag_cloud_url": "クラウドストレージAPI URL",
     "flag_cloud_key": "クラウドストレージAPIキー",
     "flag_cloud_timeout": "クラウドストレージタイムアウト（秒）",

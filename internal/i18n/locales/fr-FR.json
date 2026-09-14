@@ -298,7 +298,7 @@
     "short": "Système de gestion de données personnelles",
     "long": "Système de gestion de données personnelles pour gérer les ressources et les tags.\nPrend en charge les opérations telles que l'ajout, la récupération, la suppression de ressources, et la gestion des tags.",
     "flag_debug": "Activer le mode débogage",
-    "flag_storage": "Type de stockage: local, cloud, sync",
+    "flag_storage": "Type de stockage: local, cloud",
     "flag_cloud_url": "URL API du stockage cloud",
     "flag_cloud_key": "Clé API du stockage cloud",
     "flag_cloud_timeout": "Délai d'attente du stockage cloud (secondes)",

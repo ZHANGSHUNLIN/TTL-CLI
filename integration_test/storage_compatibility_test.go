@@ -29,7 +29,6 @@ func TestLocalStorage_UpdatePreservesResourceMetadata(t *testing.T) {
 		name string
 		open func(*testing.T) corestorage.Storage
 	}{
-		{name: "bbolt", open: openTestBbolt},
 		{name: "sqlite", open: openTestSQLite},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -74,7 +73,7 @@ func openTestBbolt(t *testing.T) corestorage.Storage {
 func openTestSQLite(t *testing.T) corestorage.Storage {
 	t.Helper()
 	storage := storagesqlite.NewSQLiteStorage()
-	storage.SetDBPath(filepath.Join(t.TempDir(), "data.db"))
+	storage.SetDBPath(filepath.Join(t.TempDir(), "data.sqlite"))
 	if err := storage.Init(); err != nil {
 		t.Fatalf("Init() error = %v", err)
 	}
@@ -114,32 +113,26 @@ type legacyLogRecord struct {
 	Date      string   `json:"date"`
 }
 
-func TestBboltStorage_LegacyDataCompatibility(t *testing.T) {
+func TestSQLiteStorage_RejectsLegacyBboltData(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy.bbolt")
 	createLegacyBboltFixture(t, dbPath)
 
-	storage := storagebbolt.NewLocalStorage()
+	storage := storagesqlite.NewSQLiteStorage()
 	storage.SetDBPath(dbPath)
-	if err := storage.Init(); err != nil {
-		t.Fatalf("open legacy bbolt data: %v", err)
+	if err := storage.Init(); err == nil {
+		t.Fatal("expected legacy bbolt data to be rejected")
 	}
-	t.Cleanup(func() { _ = storage.Close() })
-
-	assertLegacyStorageData(t, storage)
 }
 
-func TestSQLiteStorage_LegacyDataCompatibility(t *testing.T) {
+func TestSQLiteStorage_RejectsLegacySQLiteData(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "legacy.db")
 	createLegacySQLiteFixture(t, dbPath)
 
 	storage := storagesqlite.NewSQLiteStorage()
 	storage.SetDBPath(dbPath)
-	if err := storage.Init(); err != nil {
-		t.Fatalf("open legacy sqlite data: %v", err)
+	if err := storage.Init(); err == nil {
+		t.Fatal("expected legacy sqlite data to be rejected")
 	}
-	t.Cleanup(func() { _ = storage.Close() })
-
-	assertLegacyStorageData(t, storage)
 }
 
 func createLegacyBboltFixture(t *testing.T, path string) {

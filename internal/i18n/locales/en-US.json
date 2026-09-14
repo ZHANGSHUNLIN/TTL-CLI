@@ -333,7 +333,7 @@
     "short": "Personal data management system",
     "long": "Personal data management system for managing resources and tags.\nSupports operations like add, get, delete resources, and manage tags.",
     "flag_debug": "Enable debug mode",
-    "flag_storage": "Storage type: local, cloud, sync",
+    "flag_storage": "Storage type: local, cloud",
     "flag_cloud_url": "Cloud storage API URL",
     "flag_cloud_key": "Cloud storage API key",
     "flag_cloud_timeout": "Cloud storage timeout (seconds)",

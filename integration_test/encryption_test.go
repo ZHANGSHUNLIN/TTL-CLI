@@ -7,7 +7,7 @@ import (
 
 	"ttl-cli/internal/core/resource"
 	"ttl-cli/internal/crypto"
-	storagebbolt "ttl-cli/internal/storage/bbolt"
+	storagesqlite "ttl-cli/internal/storage/sqlite"
 )
 
 func TestEncryptionLifecycle(t *testing.T) {
@@ -67,7 +67,7 @@ func TestEncryptionLifecycle(t *testing.T) {
 		}
 	}
 
-	ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
+	ls, ok := testDB.Stor.(*storagesqlite.SQLiteStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage")
 	}
@@ -77,7 +77,7 @@ func TestEncryptionLifecycle(t *testing.T) {
 		t.Fatalf("Failed to re-init DB: %v", err)
 	}
 
-	ls, ok = testDB.Stor.(*storagebbolt.LocalStorage)
+	ls, ok = testDB.Stor.(*storagesqlite.SQLiteStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage after re-init")
 	}
@@ -109,13 +109,7 @@ func TestEncryptionLifecycle(t *testing.T) {
 		}
 	}
 
-	rawDB, err := storagebbolt.GetDBPath(confPath, "local")
-	if err != nil {
-		t.Fatalf("Failed to get DB path: %v", err)
-	}
-	_ = rawDB
-
-	ls2, ok := testDB.Stor.(*storagebbolt.LocalStorage)
+	ls2, ok := testDB.Stor.(*storagesqlite.SQLiteStorage)
 	if !ok {
 		t.Fatal("Expected LocalStorage after re-init")
 	}
@@ -276,7 +270,7 @@ func TestEncryptionCommands(t *testing.T) {
 			t.Fatalf("Failed to save resource: %v", err)
 		}
 
-		ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
+		ls, ok := testDB.Stor.(*storagesqlite.SQLiteStorage)
 		if !ok {
 			t.Fatal("Expected LocalStorage")
 		}
@@ -302,7 +296,7 @@ func TestEncryptionCommands(t *testing.T) {
 		}
 		defer testDB.CloseDB()
 
-		ls, ok := testDB.Stor.(*storagebbolt.LocalStorage)
+		ls, ok := testDB.Stor.(*storagesqlite.SQLiteStorage)
 		if !ok {
 			t.Fatal("Expected LocalStorage")
 		}

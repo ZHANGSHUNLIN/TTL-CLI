@@ -28,6 +28,14 @@
     "W-018": {
       "status": "Done",
       "completed": true
+    },
+    "W-019": {
+      "status": "Done",
+      "completed": true
+    },
+    "W-020": {
+      "status": "Inbox",
+      "completed": false
     }
   }
 }

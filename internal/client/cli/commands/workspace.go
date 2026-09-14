@@ -183,19 +183,18 @@ var WorkspaceShowCmd = &cobra.Command{
 		Printf("  Storage Type: %s\n", storageType)
 		if count > 0 {
 			Println("  Status:       active")
-
-			storageType := storageType
-			if storageType == "" {
-				storageType = "sqlite"
-			}
-			tempStorage := storagesqlite.NewSQLiteStorage()
-			tempStorage.SetDBPath(dbPath)
-			if err := tempStorage.Init(); err == nil {
-				resources, _ := tempStorage.GetAllResources()
-				Printf("  Resources:    %d\n", len(resources))
-				tempStorage.Close()
+			if storageType == "local" {
+				tempStorage := storagesqlite.NewSQLiteStorage()
+				tempStorage.SetDBPath(dbPath)
+				if err := tempStorage.Init(); err == nil {
+					resources, _ := tempStorage.GetAllResources()
+					Printf("  Resources:    %d\n", len(resources))
+					_ = tempStorage.Close()
+				} else {
+					Println("  Resources:    0")
+				}
 			} else {
-				Println("  Resources:    0")
+				Println("  Resources:    remote")
 			}
 		} else {
 			Println("  Status:       inactive")

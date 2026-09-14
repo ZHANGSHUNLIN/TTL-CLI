@@ -140,8 +140,8 @@ func TestWorkspaceCRUD(t *testing.T) {
 		if dbPath == "" {
 			t.Error("Expected non-empty dbPath")
 		}
-		if storageType != "sqlite" {
-			t.Errorf("Expected storage type 'sqlite', got '%s'", storageType)
+		if storageType != "local" {
+			t.Errorf("Expected storage type 'local', got '%s'", storageType)
 		}
 		if count != 0 {
 			t.Errorf("Expected count 0 (db doesn't exist), got %d", count)
@@ -179,53 +179,6 @@ func TestWorkspaceCRUD(t *testing.T) {
 		err := DeleteWorkspace(confFile, "non-existent")
 		if err == nil {
 			t.Error("Expected error when deleting non-existent workspace")
-		}
-	})
-}
-
-func TestMigrateToWorkspaces(t *testing.T) {
-	tmpDir := t.TempDir()
-	confFile := filepath.Join(tmpDir, "test.ini")
-
-	t.Run("Migrate fresh config", func(t *testing.T) {
-		err := MigrateToWorkspaces(confFile)
-		if err != nil {
-			t.Fatalf("MigrateToWorkspaces failed: %v", err)
-		}
-
-		content, err := os.ReadFile(confFile)
-		if err != nil {
-			t.Fatalf("Failed to read config file: %v", err)
-		}
-		contentStr := string(content)
-		if !contains(contentStr, "[workspaces.default]") {
-			t.Error("Expected default workspace section after migration")
-		}
-	})
-
-	t.Run("Migrate existing config", func(t *testing.T) {
-		homeDir := t.TempDir()
-		oldDbPath := filepath.Join(homeDir, "mydata.db")
-		configContent := "[storage]\ntype = sqlite\npath = " + oldDbPath + "\n"
-		if err := os.WriteFile(confFile, []byte(configContent), 0644); err != nil {
-			t.Fatalf("Failed to write config: %v", err)
-		}
-
-		err := MigrateToWorkspaces(confFile)
-		if err != nil {
-			t.Fatalf("MigrateToWorkspaces failed: %v", err)
-		}
-
-		content, err := os.ReadFile(confFile)
-		if err != nil {
-			t.Fatalf("Failed to read config file: %v", err)
-		}
-		contentStr := string(content)
-		if !contains(contentStr, "[workspaces.default]") {
-			t.Error("Expected default workspace section")
-		}
-		if !contains(contentStr, oldDbPath) {
-			t.Error("Expected original db path to be preserved")
 		}
 	})
 }

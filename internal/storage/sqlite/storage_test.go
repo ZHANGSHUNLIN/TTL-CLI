@@ -1,12 +1,15 @@
 package sqlite
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	_ "modernc.org/sqlite"
 	"ttl-cli/internal/core/resource"
 	corestorage "ttl-cli/internal/core/storage"
 )
@@ -15,6 +18,51 @@ var Stor *SQLiteStorage
 
 func GetAllResources() (map[resource.ValJsonKey]resource.ValJson, error) {
 	return Stor.GetAllResources()
+}
+
+func TestSQLiteRejectsLegacyFiles(t *testing.T) {
+	t.Run("非 SQLite 文件", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "data.sqlite")
+		original := []byte("legacy bbolt data")
+		if err := os.WriteFile(path, original, 0600); err != nil {
+			t.Fatal(err)
+		}
+		storage := NewSQLiteStorage()
+		storage.SetDBPath(path)
+		err := storage.Init()
+		if err == nil || !containsError(err, "格式不兼容") {
+			t.Fatalf("Init error = %v, want incompatible format", err)
+		}
+		got, readErr := os.ReadFile(path)
+		if readErr != nil || string(got) != string(original) {
+			t.Fatalf("legacy file changed: readErr=%v content=%q", readErr, got)
+		}
+	})
+
+	t.Run("旧 SQLite schema", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "data.sqlite")
+		db, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`CREATE TABLE resources (key TEXT)`); err != nil {
+			db.Close()
+			t.Fatal(err)
+		}
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+		storage := NewSQLiteStorage()
+		storage.SetDBPath(path)
+		err = storage.Init()
+		if err == nil || !containsError(err, "schema 不兼容") {
+			t.Fatalf("Init error = %v, want incompatible schema", err)
+		}
+	})
+}
+
+func containsError(err error, want string) bool {
+	return err != nil && strings.Contains(err.Error(), want)
 }
 func SaveResource(k resource.ValJsonKey, v resource.ValJson) error { return Stor.SaveResource(k, v) }
 func DeleteResource(k resource.ValJsonKey) error                   { return Stor.DeleteResource(k) }
@@ -28,9 +76,9 @@ func newTempSQLiteDB(t *testing.T) func() {
 	if err != nil {
 		t.Fatalf("创建临时目录失败: %v", err)
 	}
-	dbPath := filepath.Join(tmpDir, "test.db")
+	dbPath := filepath.Join(tmpDir, "test.sqlite")
 	confPath := filepath.Join(tmpDir, "test.ini")
-	confContent := fmt.Sprintf("[storage]\ntype = sqlite\npath = %s\n", dbPath)
+	confContent := fmt.Sprintf("[storage]\ntype = local\npath = %s\n", dbPath)
 	if err := os.WriteFile(confPath, []byte(confContent), 0644); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("写入临时配置失败: %v", err)
