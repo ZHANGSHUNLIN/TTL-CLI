@@ -99,7 +99,7 @@
   - 验收：客户端只暴露 local/cloud 两种存储模式；local 只访问本地 SQLite，cloud 只访问远程服务；服务端每租户使用独立 data.sqlite；远程 profile 可配置多个但当前应用或 workspace 只有一个活动项；sync 不再作为存储类型；切换数据源不自动复制或覆盖另一端；旧 bbolt/SQLite 文件明确拒绝且不读取、不转换、不覆盖、不删除；W-019 不引入 W-020 的同步、版本或 CRDT 协议。
   - 检查：方案评审后执行 `gofmt -s -l .`、`go test ./...`、`go test -race ./...`、`go test ./integration_test/...`、`./scripts/regression.sh`、`./scripts/cli-composability.sh`、`go vet ./...`、`./scripts/verify.sh` 和 `git diff --cached --check` 均通过；远端 `10.99.48.2:8900` 部署、健康检查、认证资源读写、租户 SQLite 权限和删除隔离完成；本地模式隔离和旧格式拒绝演练确认源文件未被修改。
   - 决策：[`服务端按租户使用独立 SQLite 文件`](docs/decisions/2026-09-13-server-tenant-sqlite.md)（`adopted`）；CRDT 同步决策已转交 [`W-020 暂定 CRDT 决策`](docs/decisions/2026-09-13-versioned-crdt-sync.md)（`proposed`）
-  - 备注：本任务仅改造 local/cloud 存储模式、客户端配置、服务端租户 SQLite、旧格式拒绝和生命周期；不提供旧数据迁移或兼容窗口。版本化同步、CRDT 和冲突处理拆分到 W-020，不在本任务中讨论或实现。owner code review、方案评审和交付验收结论均为 `PASS`；提交：`19e3a13`（`feat: converge local and cloud storage modes`）。
+  - 备注：本任务仅改造 local/cloud 存储模式、客户端配置、服务端租户 SQLite、旧格式拒绝和生命周期；不提供旧数据迁移或兼容窗口。版本化同步、CRDT 和冲突处理拆分到 W-020，不在本任务中讨论或实现。owner code review、方案评审和交付验收结论均为 `PASS`；代码提交：`f9d9af7`（`feat: converge local and cloud storage modes`）。
 
 - W-020 设计本地与云端数据同步及冲突处理
   - 类型：feature
