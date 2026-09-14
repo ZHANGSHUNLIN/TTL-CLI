@@ -46,6 +46,9 @@ func GetTtlConf() (TtlIni, error) {
 }
 
 func GetTtlConfFromFile(confFile string) (TtlIni, error) {
+	if confFile == "" {
+		return GetTtlConf()
+	}
 	if _, err := os.Stat(confFile); os.IsNotExist(err) {
 		if err := os.MkdirAll(filepath.Dir(confFile), 0755); err != nil {
 			return TtlIni{}, fmt.Errorf("failed to create config directory: %w", err)

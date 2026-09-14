@@ -302,6 +302,42 @@ func TestModel_LastListPageReportsLastPage(t *testing.T) {
 	}
 }
 
+func TestModel_MouseWheelScrollsWithinTUI(t *testing.T) {
+	resources := make([]clientapp.Resource, 0, 4)
+	for index := 0; index < 4; index++ {
+		resources = append(resources, clientapp.Resource{
+			Key:   resource.ValJsonKey{Key: fmt.Sprintf("resource-%d", index), Type: resource.ORIGIN},
+			Value: resource.ValJson{Val: fmt.Sprintf("value-%d", index)},
+		})
+	}
+	model := NewModel(&fakeService{resources: resources}, 80, 12)
+	model = updateModel(t, model, loadMsg{resources: resources})
+
+	updated, _ := model.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	model = updated.(Model)
+	if model.selected != 1 {
+		t.Fatalf("wheel down selected = %d, want 1", model.selected)
+	}
+	updated, _ = model.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	model = updated.(Model)
+	if model.selected != 0 {
+		t.Fatalf("wheel up selected = %d, want 0", model.selected)
+	}
+
+	model.screen = detailScreen
+	model.detailOffset = 1
+	updated, _ = model.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	model = updated.(Model)
+	if model.detailOffset != 0 {
+		t.Fatalf("detail wheel up offset = %d, want 0", model.detailOffset)
+	}
+	updated, _ = model.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	model = updated.(Model)
+	if model.detailOffset != 1 {
+		t.Fatalf("detail wheel down offset = %d, want 1", model.detailOffset)
+	}
+}
+
 func TestModel_SaveShortcutMatchesOperatingSystem(t *testing.T) {
 	model := NewModel(&fakeService{resources: testResources()}, 80, 24)
 	model.resources = testResources()

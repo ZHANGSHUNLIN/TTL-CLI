@@ -135,7 +135,7 @@ func Run(service ResourceService, opts RunOptions) (err error) {
 			err = fmt.Errorf("%s", uiText("tui.error_crashed", "TUI crashed: %v", recovered))
 		}
 	}()
-	programOptions := []tea.ProgramOption{tea.WithAltScreen()}
+	programOptions := []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
 	if opts.In != nil {
 		programOptions = append(programOptions, tea.WithInput(opts.In))
 	}
@@ -212,6 +212,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
+	case tea.MouseMsg:
+		if msg.Button == tea.MouseButtonWheelUp {
+			return m.updateWheel(-1)
+		}
+		if msg.Button == tea.MouseButtonWheelDown {
+			return m.updateWheel(1)
+		}
+		return m, nil
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -273,6 +281,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m.updateBrowse(key)
+}
+
+func (m Model) updateWheel(delta int) (tea.Model, tea.Cmd) {
+	switch m.screen {
+	case detailScreen:
+		m.detailOffset += delta
+		if m.detailOffset < 0 {
+			m.detailOffset = 0
+		}
+		return m, nil
+	case browseScreen:
+		if delta < 0 {
+			if m.selected > 0 {
+				m.selected--
+				m.ensureSelectedVisible()
+			}
+		} else if delta > 0 && m.selected+1 < len(m.resources) {
+			m.selected++
+			m.ensureSelectedVisible()
+		}
+	}
+	return m, nil
 }
 
 func (m Model) updateBrowse(key tea.KeyMsg) (tea.Model, tea.Cmd) {

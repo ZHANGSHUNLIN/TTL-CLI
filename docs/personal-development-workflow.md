@@ -2,7 +2,9 @@
 
 本项目采用面向个人练习的本地开发流程。`WORK_ITEMS.md` 保存当前任务正文和交付证据，`WORK_ITEMS.json` 保存任务状态元数据；已完成任务的历史保存在 [`WORK_ITEMS_ARCHIVE.md`](../WORK_ITEMS_ARCHIVE.md)。不使用 GitHub Issue、Project、Pull Request、reviewer 请求或审批积分。
 
-工程 Skill 的索引见 [`docs/engineering-skills.md`](engineering-skills.md)，具体规则位于 [`.agents/skills/`](../.agents/skills/)。回归测试的分层说明见 [`docs/regression-testing.md`](regression-testing.md)。Skill 是可按场景复用的操作规范，不会替代任务清单、人工审核或本地 commit。
+本项目及其工程 Skill 的正文、模板、任务说明和研发记录统一使用中文。命令、代码标识、路径、协议字段、文件格式、Skill 名称和外部工具名称保留原文；英文资料引用时必须补充中文说明。新增文档不以英文作为正文，已有英文文档在对应任务触及时翻译。
+
+工程 Skill 的索引见 [`docs/engineering-skills.md`](engineering-skills.md)，具体规则位于 [`.agents/skills/`](../.agents/skills/)。回归测试的分层说明见 [`docs/regression-testing.md`](regression-testing.md)。Skill 是可按场景复用的操作规范，不会替代任务清单、人工审核或本地 commit；看板只做状态和文档展示，不承载评审操作。
 
 ## 完整研发流程
 
@@ -82,7 +84,7 @@ docs/acceptance/YYYY-MM-DD-W-XXX-<slug>.md
 
 `Review` 是“等待人工审核”的状态，不代表审核已经通过。`Done` 必须同时具备自动检查证据、人工审核结论和 commit id；`WORK_ITEMS.json` 中的 `completed` 应同步为 `true`。
 
-任务的 `reviews` 数组可以保存过程中的普通评论，但普通评论不会自动改变任务状态，也不等同于代码评审。正式代码评审应在任务进入 `Review` 后进行；只有 `Review` 状态的任务才允许使用“打回修改”动作，打回后回到 `Doing`。
+看板不再读取或维护任务的 `reviews` 数组，也不提供评论和“打回修改”操作。正式方案评审和代码评审仍以 `docs/reviews/` 中的文档及本地研发流程为准；`Review` 状态仅表示任务等待外部检查和确认。
 
 任务类型和阶段进度属于任务内容元数据，写在 `WORK_ITEMS.md` 的可选字段中，由看板解析和展示。推荐字段为 `类型`、`优先级`、`当前阶段`、`阶段清单`、`父任务`、`依赖`、`产物`、`阻塞原因` 和 `下一步`。生命周期状态仍只写入 `WORK_ITEMS.json`；不要用阶段字段替代 `Inbox`、`Doing`、`Review`、`Blocked`、`Done`。
 

@@ -29,6 +29,10 @@ Use temporary directories and configuration files for manual CLI checks so local
 
 Follow idiomatic Go and let `gofmt -s` define layout (tabs in source). Use mixed-case exported identifiers with Go doc comments where appropriate; use short lower-case names for locals and packages. Keep user-facing strings in i18n locale files. Preserve package boundaries and return contextual errors from command and storage layers.
 
+### 文档语言规范
+
+项目 README、`docs/`、`WORK_ITEMS*`、工程 Skill 说明和新增注释默认全部使用中文。代码标识符、命令、路径、协议字段、标准名称、文件格式名称和外部工具名称保留原文；引用英文原文时应补充中文说明。新增文档不得以英文作为正文，已有英文文档按任务触达范围逐步翻译。
+
 ## Testing Guidelines
 
 Name tests `Test<Type>_<Scenario>` (for example, `TestUserStore_AddUser`), and isolate them with `t.TempDir` or `httptest`. Add focused package tests for behavior changes, then run `go test ./...`; run `go test ./integration_test/...` for API, cloud-storage, sync, or cross-package changes. CI exercises the race detector and publishes coverage; no numeric threshold is configured.
@@ -43,7 +47,7 @@ For local practice, use [`WORK_ITEMS.md`](WORK_ITEMS.md) for current task conten
 
 Project-specific engineering Skills live under [`.agents/skills/`](.agents/skills/). The `personal-workflow-dashboard` entry is a symlink to the shared global Skill at `/Users/v_zhangshun01/.codex/skills/personal-workflow-dashboard`; use its `ensure-project.sh` entrypoint to initialize or connect this project. Use [`docs/engineering-skills.md`](docs/engineering-skills.md) for the overview and choose the smallest applicable Skill:
 
-任务类型和研发阶段进度写在 `WORK_ITEMS.md` 的可选元数据字段中；`WORK_ITEMS.json` 只维护生命周期状态、完成标记和评审记录。看板中的 `Inbox`、`Doing`、`Review`、`Blocked`、`Done` 是生命周期状态，不是需求、设计、编码等阶段列。
+任务类型和研发阶段进度写在 `WORK_ITEMS.md` 的可选元数据字段中；`WORK_ITEMS.json` 只维护生命周期状态和完成标记。看板中的 `Inbox`、`Doing`、`Review`、`Blocked`、`Done` 是生命周期状态，不是需求、设计、编码等阶段列；看板不保存评审评论或打回记录。
 
 - `personal-requirement-analysis` turns a large feature request into a reviewable requirement document.
 - `personal-tech-design` defines implementation ownership, interfaces, data changes, lifecycle, risks, and tests.
@@ -60,3 +64,5 @@ Project-specific engineering Skills live under [`.agents/skills/`](.agents/skill
 - `personal-find-simplifications` proposes evidence-backed reductions in complexity.
 - `personal-prose-standard` reviews code comments, docs, help, and localized copy.
 - `personal-decision-records` manages meaningful decisions in `docs/decisions/`.
+
+所有 Skill 的说明、模板和项目研发文档遵循同一中文规范；Skill 名称、代码/API 标识和命令示例不翻译，以保证可执行性。

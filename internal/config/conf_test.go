@@ -120,6 +120,28 @@ func TestGetTtlConf(t *testing.T) {
 	}
 }
 
+func TestGetTtlConfFromFile_EmptyUsesDefaultPath(t *testing.T) {
+	testHome := t.TempDir()
+	t.Setenv("HOME", testHome)
+	t.Setenv("USERPROFILE", testHome)
+
+	conf, err := GetTtlConfFromFile("")
+	if err != nil {
+		t.Fatalf("GetTtlConfFromFile(\"\"): %v", err)
+	}
+	if conf.StorageType != DefaultStorageType {
+		t.Fatalf("storage type = %q, want %q", conf.StorageType, DefaultStorageType)
+	}
+
+	path, err := GetDefaultConfPath()
+	if err != nil {
+		t.Fatalf("GetDefaultConfPath(): %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("default config path %q was not created: %v", path, err)
+	}
+}
+
 func TestInitConfig(t *testing.T) {
 	tests := []struct {
 		name          string
