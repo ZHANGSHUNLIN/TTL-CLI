@@ -49,7 +49,7 @@ Chega de procurar em emails antigos ou rolar o histórico do Slack. Apenas `ttl 
 | 🗄️ **Armazenamento KV Local** | Banco de dados embarcado rápido, sem configuração (bbolt) |
 | 🏷️ **Sistema de Tags** | Organize recursos com tags flexíveis e pesquisáveis |
 | 🔍 **Busca Fuzzy** | Encontre o que precisa instantaneamente entre chaves e tags |
-| ☁️ **Sincronização em Nuvem** | Auto-hospede um servidor multi-tenant com isolamento de dados por usuário |
+| ☁️ **Sincronização em Nuvem** | Conecte a um backend TTL mantido em um projeto separado |
 | 🚀 **Abertura Inteligente** | Abra URLs e arquivos com programas padrão do sistema |
 | 📤 **Exportar** | Exporte dados como JSON ou CSV |
 
@@ -132,17 +132,9 @@ ttl log list --range month      # Este mês
 ---
 
 
-## ☁️ Servidor em Nuvem e Sincronização
+## ☁️ Serviço em Nuvem e Sincronização
 
-### Iniciar Seu Servidor
-
-```bash
-# Criar um usuário
-ttl-server user add --id alice --name Alice
-
-# Iniciar servidor multi-tenant
-ttl-server serve --port 8080
-```
+O backend é mantido e implantado como um serviço separado. Este repositório contém apenas o cliente `ttl` e seu adaptador HTTP; ele não compila nem publica um executável de servidor.
 
 ### Sincronizar Seus Dados
 
@@ -201,27 +193,15 @@ ttl export --format json --output backup.json
 ## 🏗️ Estrutura do Projeto
 
 ```
-ttl
-├── main.go              # Ponto de entrada, configuração CLI (cobra)
-├── command/             # Definições de comandos CLI
-│   ├── commands.go      # Comandos principais (get/add/del/tag/open...)
-│   ├── log.go           # Comandos de log de trabalho
-│   ├── export.go        # Comando de exportação
-│   └── server.go        # Comandos do servidor
-├── db/                  # Camada de armazenamento (bbolt)
-│   ├── db.go            # Inicialização do banco de dados
-│   ├── storage.go       # Implementação do armazenamento local
-│   ├── tenant_storage.go# Roteador de armazenamento multi-tenant
-│   ├── user_store.go    # CRUD de usuários (users.json)
-│   └── context.go       # Armazenamento por requisição
-├── api/                 # Servidor HTTP
-│   ├── server.go        # Inicialização do servidor
-│   ├── handlers.go      # Handlers da API REST
-│   └── middleware.go     # Middleware de autenticação
-├── sync/                # Lógica de sincronização de dados
-├── models/              # Modelos de dados compartilhados
-├── conf/                # Manipulação do arquivo de configuração (INI)
-└── util/                # Funções utilitárias
+ttl-cli/
+├── cmd/ttl/                    # Entrada do cliente
+├── internal/client/            # CLI, TUI, acesso remoto e sincronização
+├── internal/core/              # Modelos e contratos internos do cliente
+├── internal/storage/           # Adaptadores de armazenamento local
+├── internal/config/            # Configuração e workspaces
+├── internal/crypto/            # Criptografia e ciclo de vida das chaves
+├── integration_test/           # Testes integrados do cliente
+└── scripts/                    # Regressão e verificação completa
 ```
 
 ---

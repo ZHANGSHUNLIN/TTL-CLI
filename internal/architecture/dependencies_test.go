@@ -2,6 +2,7 @@ package architecture
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -13,17 +14,15 @@ type listedPackage struct {
 	Deps       []string
 }
 
-func TestClientAndServerDoNotImportEachOther(t *testing.T) {
-	packages := listPackages(t, "../client/...", "../server/...")
+func TestClientDoesNotImportRemovedPackages(t *testing.T) {
+	packages := listPackages(t, "../client/...")
 	for _, pkg := range packages {
 		for _, imported := range pkg.Imports {
 			switch {
 			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/client/") && strings.HasPrefix(imported, "ttl-cli/internal/server/"):
-				t.Errorf("client package %s imports server package %s", pkg.ImportPath, imported)
+				t.Errorf("client package %s imports removed server package %s", pkg.ImportPath, imported)
 			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/client/") && imported == "ttl-cli/db":
 				t.Errorf("client package %s imports legacy db facade", pkg.ImportPath)
-			case strings.HasPrefix(pkg.ImportPath, "ttl-cli/internal/server/") && strings.HasPrefix(imported, "ttl-cli/internal/client/"):
-				t.Errorf("server package %s imports client package %s", pkg.ImportPath, imported)
 			}
 		}
 	}
@@ -42,22 +41,16 @@ func TestCoreDoesNotImportAdapters(t *testing.T) {
 	}
 }
 
-func TestServerBinary_DependencyBoundary(t *testing.T) {
-	packages := listPackages(t, "../../cmd/ttl-server")
-	for _, pkg := range packages {
-		for _, dependency := range append(pkg.Imports, pkg.Deps...) {
-			if strings.HasPrefix(dependency, "ttl-cli/internal/client/") ||
-				dependency == "ttl-cli/internal/client/cli/commands" ||
-				dependency == "ttl-cli/db" ||
-				dependency == "ttl-cli/internal/client/sync" {
-				t.Errorf("server binary %s depends on forbidden package %s", pkg.ImportPath, dependency)
-			}
+func TestBackendImplementationRemoved(t *testing.T) {
+	for _, path := range []string{"../../cmd/ttl-server", "../server"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("backend path must not exist: %s", path)
 		}
 	}
 }
 
 func TestLegacyPackagesRemoved(t *testing.T) {
-	packages := listPackages(t, "../...", "../../cmd/ttl", "../../cmd/ttl-server")
+	packages := listPackages(t, "../...", "../../cmd/ttl")
 	legacy := map[string]bool{
 		"ttl-cli/command": true,
 		"ttl-cli/models":  true,

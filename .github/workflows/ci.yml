@@ -107,31 +107,3 @@ jobs:
         with:
           name: ttl-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ttl*
-
-  server-build:
-    name: Build server (${{ matrix.goarch }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goarch: [amd64, arm64]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Download dependencies
-        run: go mod download
-      - name: Build server entry point
-        env:
-          GOOS: linux
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: go build -ldflags="-s -w" -o ttl-server ./cmd/ttl-server
-      - name: Upload server artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ttl-server-linux-${{ matrix.goarch }}
-          path: ttl-server

@@ -36,6 +36,10 @@
     "W-020": {
       "status": "Inbox",
       "completed": false
+    },
+    "W-021": {
+      "status": "Review",
+      "completed": false
     }
   }
 }

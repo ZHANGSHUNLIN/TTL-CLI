@@ -51,7 +51,7 @@ No more searching through old emails or scrolling through Slack history. Just `t
 | 🏷️ **Tag System** | Organize resources with flexible, searchable tags |
 | 🔍 **Fuzzy Search** | Find what you need instantly across keys and tags |
 | 📝 **Work Log** | Track and filter daily work |
-| ☁️ **Cloud Sync** | Self-host multi-tenant server with per-user data isolation |
+| ☁️ **Cloud Sync** | Connect to a separately operated TTL backend service |
 | 🚀 **Smart Open** | Open URLs and files with system default programs |
 | 📤 **Export** | Export data as JSON or CSV |
 
@@ -150,20 +150,11 @@ ttl log list --range month      # This month
 
 ---
 
-## ☁️ Cloud Server & Sync
+## ☁️ Cloud Service & Sync
 
-### Start Your Server
-
-```bash
-# Create a user
-ttl-server user add --id alice --name Alice
-
-# Start multi-tenant server
-ttl-server serve --port 8080
-```
-
-独立服务端制品、权限、健康检查、TLS 边界和升级回滚流程见
-[`docs/server-deployment.md`](docs/server-deployment.md)。
+The backend is maintained and deployed as a separate service. This repository
+contains only the `ttl` client and its HTTP adapter; it does not build or ship a
+server executable.
 
 ### Sync Your Data
 
@@ -224,20 +215,18 @@ ttl export --format json --output backup.json
 ```
 ttl-cli/
 ├── cmd/ttl/                # Canonical local client entry point
-├── cmd/ttl-server/         # Standalone backend server entry point
 ├── internal/client/cli/    # Client root and command composition
 ├── internal/client/cli/commands/ # Cobra command adapters
 ├── internal/client/app/    # Client use cases and storage lifecycle
 ├── internal/client/tui/    # Terminal UI adapter
 ├── internal/client/sync/   # Sync diff, push/pull, mirrored storage
-├── internal/server/        # Backend API, tenant data, and server commands
 ├── internal/storage/       # SQLite and bbolt adapters
 ├── internal/config/        # Shared INI configuration and workspaces
 ├── internal/crypto/        # Shared data encryption and key lifecycle
 ├── internal/i18n/          # Localization loader and locale resources
 ├── internal/core/resource/ # Shared persisted and API-facing types
 ├── internal/core/text/     # Stateless text helpers
-├── integration_test/       # Cross-package and server/sync scenarios
+├── integration_test/       # Cross-package client scenarios
 ├── scripts/                # CLI regression and full verification scripts
 └── docs/                   # Engineering workflow and decision records
 ```
@@ -245,14 +234,11 @@ ttl-cli/
 For startup flow, package responsibilities, data flow, and common change
 locations, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
 
-The local client and backend service can now be built independently:
+Build the client with:
 
 ```bash
 go build -o ttl ./cmd/ttl
-go build -o ttl-server ./cmd/ttl-server
 ```
-
-`ttl-server` is the standalone server entry point.
 
 ---
 

@@ -51,7 +51,7 @@
 | 🏷️ **标签系统** | 用灵活、可搜索的标签组织资源 |
 | 🔍 **模糊搜索** | 跨键名和标签即时查找所需内容 |
 | 📝 **工作日志** | 记录并按条件筛选每日工作 |
-| ☁️ **云端同步** | 自建多租户服务器，每用户数据隔离 |
+| ☁️ **云端同步** | 连接由独立工程维护的 TTL 后端服务 |
 | 🚀 **智能打开** | 用系统默认程序打开 URL 和文件 |
 | 📤 **数据导出** | 导出为 JSON 或 CSV 格式 |
 
@@ -132,17 +132,9 @@ ttl log list --range month      # 本月
 
 ---
 
-## ☁️ 云端服务器与同步
+## ☁️ 云端服务与同步
 
-### 启动你的服务器
-
-```bash
-# 创建用户
-ttl-server user add --id alice --name Alice
-
-# 启动多租户服务器
-ttl-server serve --port 8080
-```
+后端由独立服务工程维护和部署。本仓库只包含 `ttl` 客户端及其 HTTP 适配器，不构建或发布服务端可执行文件。
 
 ### 同步数据
 
@@ -201,27 +193,15 @@ ttl export --format json --output backup.json
 ## 🏗️ 项目结构
 
 ```
-ttl
-├── main.go              # 入口点，CLI 设置 (cobra)
-├── command/             # CLI 命令定义
-│   ├── commands.go      # 核心命令 (get/add/del/tag/open...)
-│   ├── log.go           # 工作日志命令
-│   ├── export.go        # 导出命令
-│   └── server.go        # 服务器命令
-├── db/                  # 存储层 (bbolt)
-│   ├── db.go            # 数据库初始化
-│   ├── storage.go       # 本地存储实现
-│   ├── tenant_storage.go# 多租户存储路由
-│   ├── user_store.go    # 用户 CRUD (users.json)
-│   └── context.go       # 请求范围的存储
-├── api/                 # HTTP 服务器
-│   ├── server.go        # 服务器启动
-│   ├── handlers.go      # REST API 处理器
-│   └── middleware.go     # 认证中间件
-├── sync/                # 数据同步逻辑
-├── models/              # 共享数据模型
-├── conf/                # 配置文件 (INI) 处理
-└── util/                # 工具函数
+ttl-cli/
+├── cmd/ttl/                    # 客户端入口
+├── internal/client/            # CLI、TUI、远端访问与同步
+├── internal/core/              # 客户端内部模型与存储契约
+├── internal/storage/           # 本地存储适配
+├── internal/config/            # 配置与工作空间
+├── internal/crypto/            # 加密与密钥生命周期
+├── integration_test/           # 跨包客户端测试
+└── scripts/                    # 回归与完整验证
 ```
 
 ---

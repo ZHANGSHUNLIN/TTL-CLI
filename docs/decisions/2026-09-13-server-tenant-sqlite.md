@@ -1,10 +1,12 @@
 # 服务端按租户使用独立 SQLite 文件
 
 日期：2026-09-13
-状态：adopted
+状态：adopted（历史）；本仓实现归属已由 W-021 替代
 任务：W-019
 
 ## 背景
+
+> 2026-09-18 更新：后端存储实现已移出本仓库；独立后端的数据布局由其自身决策负责。当前仓库边界见 [`W-021`](2026-09-18-externalize-backend-service.md)。
 
 当前服务端 `StorageManager` 为每个用户打开一个 bbolt 文件，客户端同时存在 SQLite、
 bbolt、cloud 和 sync 多种入口。W-019 需要把普通存储收敛为 local/cloud，并让服务端与

@@ -51,7 +51,7 @@
 | 🏷️ **タグシステム** | 柔軟で検索可能なタグでリソースを整理 |
 | 🔍 **ファジー検索** | キーとタグをまたいで即座に検索 |
 | 📝 **作業ログ** | 日次作業を記録・絞り込み |
-| ☁️ **クラウド同期** | マルチテナントサーバーを自己ホスト、ユーザーごとのデータ分離 |
+| ☁️ **クラウド同期** | 別プロジェクトで運用される TTL バックエンドに接続 |
 | 🚀 **スマートオープン** | システムデフォルトプログラムで URL とファイルを開く |
 | 📤 **エクスポート** | JSON または CSV 形式でエクスポート |
 
@@ -134,17 +134,9 @@ ttl log list --range month      # 今月
 ---
 
 
-## ☁️ クラウドサーバーと同期
+## ☁️ クラウドサービスと同期
 
-### サーバーを開始
-
-```bash
-# ユーザーを作成
-ttl-server user add --id alice --name Alice
-
-# マルチテナントサーバーを開始
-ttl-server serve --port 8080
-```
+バックエンドは別のサービスプロジェクトで保守・運用されます。このリポジトリには `ttl` クライアントと HTTP アダプターだけが含まれ、サーバー実行ファイルはビルドも配布もしません。
 
 ### データを同期
 
@@ -203,27 +195,15 @@ ttl export --format json --output backup.json
 ## 🏗️ プロジェクト構造
 
 ```
-ttl
-├── main.go              # エントリーポイント、CLI 設定 (cobra)
-├── command/             # CLI コマンド定義
-│   ├── commands.go      # コアコマンド (get/add/del/tag/open...)
-│   ├── log.go           # 作業ログコマンド
-│   ├── export.go        # エクスポートコマンド
-│   └── server.go        # サーバーコマンド
-├── db/                  # ストレージレイヤー (bbolt)
-│   ├── db.go            # データベース初期化
-│   ├── storage.go       # ローカルストレージ実装
-│   ├── tenant_storage.go# マルチテナントストレージルーター
-│   ├── user_store.go    # ユーザー CRUD (users.json)
-│   └── context.go       # リクエストスコープストレージ
-├── api/                 # HTTP サーバー
-│   ├── server.go        # サーバー起動
-│   ├── handlers.go      # REST API ハンドラー
-│   └── middleware.go     # 認証ミドルウェア
-├── sync/                # データ同期ロジック
-├── models/              # 共有データモデル
-├── conf/                # 設定ファイル (INI) 処理
-└── util/                # ユーティリティ関数
+ttl-cli/
+├── cmd/ttl/                    # クライアントエントリーポイント
+├── internal/client/            # CLI、TUI、リモートアクセス、同期
+├── internal/core/              # クライアント内部モデルと契約
+├── internal/storage/           # ローカルストレージアダプター
+├── internal/config/            # 設定とワークスペース
+├── internal/crypto/            # 暗号化とキー管理
+├── integration_test/           # クライアント統合テスト
+└── scripts/                    # 回帰テストと完全検証
 ```
 
 ---

@@ -116,6 +116,22 @@
   - 检查：待补充
   - 决策：[`docs/decisions/2026-09-13-versioned-crdt-sync.md`](docs/decisions/2026-09-13-versioned-crdt-sync.md)（`proposed`；具体协议和实现待后续方案评审）
   - 备注：本任务承接从 W-019 拆出的版本化同步、CRDT 和冲突处理，当前只保留需求骨架和暂定决策，不在 W-019 实施期间展开。
+
+- W-021 移除当前工程的后端实现
+  - 类型：refactor
+  - 优先级：P1
+  - 当前阶段：commit
+  - 阶段清单：requirements,design,design_review,breakdown,implementation,tests,delivery_review,commit
+  - 父任务：无
+  - 依赖：无
+  - 产物：需求=[`docs/requirements/2026-09-18-W-021-remove-in-repo-backend.md`](docs/requirements/2026-09-18-W-021-remove-in-repo-backend.md)；方案=[`docs/tech-designs/2026-09-18-W-021-remove-in-repo-backend.md`](docs/tech-designs/2026-09-18-W-021-remove-in-repo-backend.md)；方案评审=[`docs/reviews/2026-09-18-W-021-remove-in-repo-backend-design.md`](docs/reviews/2026-09-18-W-021-remove-in-repo-backend-design.md)（`PASS`）；代码评审=[`docs/reviews/2026-09-18-W-021-remove-in-repo-backend-code.md`](docs/reviews/2026-09-18-W-021-remove-in-repo-backend-code.md)（`PASS`）；WBS=[`docs/task-breakdowns/2026-09-18-W-021-remove-in-repo-backend.md`](docs/task-breakdowns/2026-09-18-W-021-remove-in-repo-backend.md)；测试=[`docs/tests/2026-09-18-W-021-remove-in-repo-backend.md`](docs/tests/2026-09-18-W-021-remove-in-repo-backend.md)；验收=[`docs/acceptance/2026-09-18-W-021-remove-in-repo-backend.md`](docs/acceptance/2026-09-18-W-021-remove-in-repo-backend.md)；决策=[`docs/decisions/2026-09-18-externalize-backend-service.md`](docs/decisions/2026-09-18-externalize-backend-service.md)
+  - 阻塞原因：无
+  - 下一步：创建本地 commit 并推送到远端
+  - 目标：删除当前仓库中的后端入口、实现、交付链路和专属测试，使 ttl-cli 只保留客户端及其对外部后端服务的远程访问能力
+  - 验收：cmd/ttl-server 与 internal/server 不再存在；CI、release、验证脚本不再构建或发布后端；客户端本地和 cloud 模式可构建并通过测试；文档明确后端由独立工程提供
+  - 检查：`go test ./internal/client/...` 和完整 `./scripts/verify.sh` 均通过；后者包含格式、脚本语法、客户端构建、架构、CLI 黑盒、`go test ./...`、集成测试、race 和 `go vet ./...`。
+  - 决策：[`docs/decisions/2026-09-18-externalize-backend-service.md`](docs/decisions/2026-09-18-externalize-backend-service.md)（`adopted`）
+  - 备注：owner 已确认提交并推送。代码评审结论为 `PASS`。真实独立后端未提供，因此未执行跨工程端到端验证；客户端 mock HTTP 契约测试保留。
 ## Task Format
 
 ```md

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`ttl-cli` contains a local client and a separately buildable backend service. `cmd/ttl/` and `cmd/ttl-server/` are the only target executable entries for the product; root `main.go`, the client-side `ttl server` command, `db/` facades, and `models/` aliases are temporary code to remove rather than supported entry points. Put client command assembly in `internal/client/cli/`, reusable client handlers in `command/`, backend HTTP/API/tenant code in `internal/server/`, concrete storage implementations in `internal/storage/`, and shared contracts in `internal/core/`. Supporting packages include `conf/` (INI and workspaces), `crypto/`, `i18n/` (with `i18n/locales/`), `sync/`, and `util/`. Unit tests live beside implementation; end-to-end server and sync scenarios are in `integration_test/`. The shared `personal-workflow-dashboard` Skill is outside this repository and is not part of the product CLI. Installers are at the root. `scripts/regression.sh` provides the built-CLI black-box regression layer, and `scripts/verify.sh` provides the full local verification pass.
+`ttl-cli` 只维护本地 `ttl` 客户端；后端由独立服务工程提供，本仓库不得新增后端入口、HTTP handler、认证、租户存储或服务端发布实现。`cmd/ttl/` 是唯一产品可执行入口。客户端命令组装放在 `internal/client/cli/`，可复用用例放在 `internal/client/app/`，远程 HTTP 适配放在 `internal/client/remote/`，同步编排放在 `internal/client/sync/`，具体本地存储放在 `internal/storage/`，内部领域契约放在 `internal/core/`。配置、加密和本地化分别位于 `internal/config/`、`internal/crypto/` 和 `internal/i18n/`。单元测试与实现同目录，跨包客户端场景位于 `integration_test/`。共享 `personal-workflow-dashboard` Skill 在仓库外，不属于产品 CLI。安装脚本位于根目录；`scripts/regression.sh` 提供已构建 CLI 的黑盒回归，`scripts/verify.sh` 提供完整本地验证。
 
 ## Build, Test, and Development Commands
 
@@ -11,7 +11,6 @@ Run these from the repository root:
 ```bash
 go mod download                 # fetch dependencies
 go build -o ttl ./cmd/ttl       # build the client
-go build -o ttl-server ./cmd/ttl-server # build the backend
 go run ./cmd/ttl <command>      # run the client without installing
 go test ./...                   # run all package tests
 go test -race -coverprofile=coverage.out ./...  # CI-style unit run

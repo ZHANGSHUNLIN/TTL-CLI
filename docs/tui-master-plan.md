@@ -440,7 +440,7 @@ Search commands
 
 ## 9. 技术架构
 
-当前仓库包含客户端和云端服务两个独立应用工程，并已规划 client、server、core 和 storage 边界。TUI 应作为 `ttl` 客户端入口加入该结构，而不是成为第三个应用工程或直接调用服务端 handler。`ttl-server` 必须作为独立云端制品发布和部署，TUI 不进入服务端运行制品。
+当前仓库只包含客户端工程。TUI 应作为 `ttl` 客户端入口加入 client、core 和 storage 边界，不直接调用或复制外部后端实现；远端能力统一通过 `internal/client/remote` 的 HTTP 契约访问独立后端服务。
 
 ```text
 cmd/ttl
@@ -730,8 +730,8 @@ ttl sync --dry-run --non-interactive
 
 ### 14.4 发布门槛
 
-- `go build ./cmd/ttl` 和 `go build ./cmd/ttl-server` 通过。
-- 发布系统分别生成 `ttl` 客户端制品和 `ttl-server` 云端制品，云端部署不依赖客户端二进制或源码目录。
+- `go build ./cmd/ttl` 通过。
+- 发布系统只生成 `ttl` 客户端制品；外部后端的构建与部署不属于本仓库。
 - 相关 Go 测试、集成测试、CLI 黑盒回归和 `go vet` 通过。
 - TUI 异常退出后终端状态恢复。
 - 现有数据无需手工转换即可打开。

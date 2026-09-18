@@ -1,10 +1,12 @@
 # 代码结构收敛采用单一归属与一次性切换
 
 日期：2026-09-13
-状态：adopted
+状态：adopted（历史）；服务端归属已由 W-021 替代
 任务：W-017
 
 ## 背景
+
+> 2026-09-18 更新：W-017 的客户端结构仍有效，`internal/server` 与 `cmd/ttl-server` 已按 [`W-021`](2026-09-18-externalize-backend-service.md) 移出本仓库。
 
 W-004 已建立客户端、服务端和共享 core 的目标边界，W-006 已消除客户端生产链路对全局 `db.Stor` 的依赖，但仓库仍处于迁移中间态：顶层 `command`、`models`、`db`、`sync`、`conf`、`crypto`、`i18n` 与新的 `internal/*` 包并存，测试仍有旧门面消费者。仅继续在现有结构上添加功能会让新旧依赖继续扩散。
 
